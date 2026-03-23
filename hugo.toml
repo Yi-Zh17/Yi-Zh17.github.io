@@ -1,0 +1,53 @@
+baseURL = 'https://Yi-Zh17.github.io'
+languageCode = 'en-gb'
+title = "Yi's Portfolio"
+theme = 'PaperMod'
+[params]
+    defaultTheme = 'auto'
+    ShowBreadCrumbs = true
+    ShowPostNavLinks = true
+    math = true
+    
+    [params.homeInfoParams]
+        Title = "Hi, I'm Yi 👋"
+        Content = """
+CS Master's student @ University of St Andrews | High-performance Systems Enthusiast
+
+C/C++ | Python | Java | Next.js
+        """
+
+    [[params.socialIcons]]
+    name = 'github'
+    url = 'https://www.github.com/yi-zh17'
+
+    [[params.socialIcons]]
+    name = 'linkedin'
+    url = 'https://www.linkedin.com/in/yi-zhang-66566a19a'
+
+[menu]
+    [[menu.main]]
+    identifier = 'about'
+    name = 'About Me'
+    url = '/about/'
+    weight = 30
+
+    [[menu.main]]
+    identifier = 'tags'
+    name = 'Tags'
+    url = '/tags/'
+    weight = 20
+
+    [[menu.main]]
+    identifier = 'posts'
+    name = 'Posts'
+    url = '/posts/'
+    weight = 10
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.extensions]
+      [markup.goldmark.extensions.passthrough]
+        enable = true
+        [markup.goldmark.extensions.passthrough.delimiters]
+          block = [['\[', '\]'], ['$$', '$$']]
+          inline = [['$', '$']]

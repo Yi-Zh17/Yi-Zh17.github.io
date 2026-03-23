@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Posts on Yi&#39;s Portfolio</title>
+    <link>http://localhost:1313/posts/</link>
+    <description>Recent content in Posts on Yi&#39;s Portfolio</description>
+    <generator>Hugo</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Thu, 12 Mar 2026 08:36:22 +0000</lastBuildDate>
+    <atom:link href="http://localhost:1313/posts/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>High-Performance KV-Store Server</title>
+      <link>http://localhost:1313/posts/kv-store/</link>
+      <pubDate>Thu, 12 Mar 2026 08:36:22 +0000</pubDate>
+      <guid>http://localhost:1313/posts/kv-store/</guid>
+      <description>&lt;h1 id=&#34;why-a-kv-store-project&#34;&gt;Why A KV-Store Project?&lt;/h1&gt;
+&lt;p&gt;In the modern era, there is a rising demand for edge computing — in many areas such as High Frequency Trading (HFT), performance and responsiveness are crucial. In this context, frequently storing and querying data to and from the database on a cloud server is not adequate due to transmission and operation overhead. Therefore, instead of using relational database, implementing a Key-Value Store system gains trend. This project is inspired by such trend, and aims to build a high-performance, thread-safe KV-Store system in C++, with extremely short and predictable query time.&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

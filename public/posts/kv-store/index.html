@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>High-Performance KV-Store Server | Yi&#39;s Portfolio</title>
+<meta name="keywords" content="">
+<meta name="description" content="Why an In-Memory KV-Store?
+In areas like High-Frequency Trading (HFT) and edge computing, system requirements emphasize not just overall throughput, but deterministic performance. Traditional relational databases often introduce high latency variance due to disk I/O and network overhead. To address this, I decided to build an in-memory Key-Value (KV) Store in C&#43;&#43; to explore how to achieve predictable, low-latency data querying.
+Additionally, I wanted to practice deploying software in heterogeneous environments. After developing the project locally on an x86 machine, I containerized the application using Docker and set up a GitHub Actions CI/CD pipeline to deploy it to an ARM-based AWS Graviton instance. This process helped me verify the system&rsquo;s cross-architecture portability.">
+<meta name="author" content="">
+<link rel="canonical" href="http://localhost:1313/posts/kv-store/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css" integrity="sha256-2jIR5e&#43;Ge/K3X9WmUVz&#43;1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/kv-store/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+    
+        <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+
+<script>
+  MathJax = {
+    tex: {
+      displayMath: [['\\[', '\\]'], ['$$', '$$']],  
+      inlineMath: [['$', '$']]                  
+    },
+    loader:{
+      load: ['ui/safe']
+    },
+  };
+</script>
+
+    
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://localhost:1313/" accesskey="h" title="Yi&#39;s Portfolio (Alt + H)">Yi&#39;s Portfolio</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/posts/" title="Posts">
+                    <span>Posts</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/tags/" title="Tags">
+                    <span>Tags</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About Me">
+                    <span>About Me</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      High-Performance KV-Store Server
+      <span class="entry-hint" title="Draft">
+        <svg xmlns="http://www.w3.org/2000/svg" height="35" viewBox="0 -960 960 960" fill="currentColor">
+          <path
+            d="M160-410v-60h300v60H160Zm0-165v-60h470v60H160Zm0-165v-60h470v60H160Zm360 580v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q9 9 13 20t4 22q0 11-4.5 22.5T862.09-380L643-160H520Zm300-263-37-37 37 37ZM580-220h38l121-122-18-19-19-18-122 121v38Zm141-141-19-18 37 37-18-19Z" />
+        </svg>
+      </span>
+    </h1>
+    <div class="post-meta"><span title='2026-03-12 08:36:22 +0000 UTC'>March 12, 2026</span>
+
+</div>
+  </header> <div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#why-an-in-memory-kv-store" aria-label="Why an In-Memory KV-Store?">Why an In-Memory KV-Store?</a><ul>
+                        
+                <li>
+                    <a href="#tech-stack" aria-label="Tech Stack">Tech Stack</a></li></ul>
+                </li>
+                <li>
+                    <a href="#system-architecture-overview" aria-label="System Architecture Overview">System Architecture Overview</a><ul>
+                        
+                <li>
+                    <a href="#design-principles" aria-label="Design Principles">Design Principles</a></li>
+                <li>
+                    <a href="#core-components" aria-label="Core Components">Core Components</a></li>
+                <li>
+                    <a href="#memory-pool" aria-label="Memory Pool">Memory Pool</a><ul>
+                        
+                <li>
+                    <a href="#why-stdbyte" aria-label="Why std::byte?">Why std::byte?</a></li>
+                <li>
+                    <a href="#the-problem-random-deallocation" aria-label="The Problem: Random Deallocation">The Problem: Random Deallocation</a></li>
+                <li>
+                    <a href="#the-solution-a-linked-free-list" aria-label="The Solution: A Linked Free List">The Solution: A Linked Free List</a></li>
+                <li>
+                    <a href="#performance-impact" aria-label="Performance Impact">Performance Impact</a>
+                </li>
+            </ul>
+            </li>
+            </ul>
+            </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><h1 id="why-an-in-memory-kv-store">Why an In-Memory KV-Store?<a hidden class="anchor" aria-hidden="true" href="#why-an-in-memory-kv-store">#</a></h1>
+<p>In areas like High-Frequency Trading (HFT) and edge computing, system requirements emphasize not just overall throughput, but deterministic performance. Traditional relational databases often introduce high latency variance due to disk I/O and network overhead. To address this, I decided to build an in-memory Key-Value (KV) Store in C++ to explore how to achieve predictable, low-latency data querying.</p>
+<p>Additionally, I wanted to practice deploying software in heterogeneous environments. After developing the project locally on an x86 machine, I containerized the application using Docker and set up a GitHub Actions CI/CD pipeline to deploy it to an ARM-based AWS Graviton instance. This process helped me verify the system&rsquo;s cross-architecture portability.</p>
+<h2 id="tech-stack">Tech Stack<a hidden class="anchor" aria-hidden="true" href="#tech-stack">#</a></h2>
+<ul>
+<li>
+<p><strong>Language:</strong> C++17 (Focusing on RAII and memory safety)</p>
+</li>
+<li>
+<p><strong>Build System:</strong> Makefile</p>
+</li>
+<li>
+<p><strong>DevOps:</strong> Docker &amp; GitHub Actions (CI/CD)</p>
+</li>
+<li>
+<p><strong>Cloud:</strong> AWS EC2 (ARM/Graviton)</p>
+</li>
+</ul>
+<hr>
+<h1 id="system-architecture-overview">System Architecture Overview<a hidden class="anchor" aria-hidden="true" href="#system-architecture-overview">#</a></h1>
+<p>To maintain predictable execution times, I focused on reducing two primary performance bottlenecks: network latency and memory allocation overhead. The architecture separates the data storage logic from the concurrent access management. Here is how a request flows through the system:</p>
+<p><em>(Insert Diagram Here)</em></p>
+<h2 id="design-principles">Design Principles<a hidden class="anchor" aria-hidden="true" href="#design-principles">#</a></h2>
+<ul>
+<li>
+<p><strong>Mitigating $O(n)$ Search Times:</strong> Standard hash maps, such as <code>std::unordered_map</code>, typically handle hash collisions using linked lists. As the load factor increases, traversing these lists degrades performance toward $O(n)$. I designed the Hash Table to minimize this degradation and maintain $O(1)$ lookup times even under heavy load.</p>
+</li>
+<li>
+<p><strong>Minimizing OS Allocator Overhead:</strong> Using standard <code>new</code> or <code>malloc</code> calls involves the OS memory allocator, introducing non-deterministic execution time due to system calls and lock contention. To resolve this, I implemented a Thread-Local Memory Pool. Each thread is assigned a pre-allocated chunk of memory, enabling independent allocations and deallocations without OS intervention.</p>
+</li>
+</ul>
+<h2 id="core-components">Core Components<a hidden class="anchor" aria-hidden="true" href="#core-components">#</a></h2>
+<p>To keep the system modular and maintainable, I divided it into five components:</p>
+<ul>
+<li>
+<p><strong>Memory Pool:</strong> Handles raw memory management, bypassing the standard heap.</p>
+</li>
+<li>
+<p><strong>Hash Table:</strong> The core data structure, optimized for fast lookups and cache efficiency.</p>
+</li>
+<li>
+<p><strong>Thread Pool:</strong> Manages worker threads to process multiple concurrent client requests.</p>
+</li>
+<li>
+<p><strong>Server:</strong> A TCP interface that handles network communication.</p>
+</li>
+<li>
+<p><strong>Logger:</strong> A thread-safe logging utility to monitor system states.</p>
+</li>
+</ul>
+<hr>
+<h2 id="memory-pool">Memory Pool<a hidden class="anchor" aria-hidden="true" href="#memory-pool">#</a></h2>
+<p>This component is central to achieving predictable latency. By managing memory at the application level, the system avoids the overhead and variance associated with the standard heap.</p>
+<h3 id="why-stdbyte">Why <code>std::byte</code>?<a hidden class="anchor" aria-hidden="true" href="#why-stdbyte">#</a></h3>
+<p>The memory pool is built on a pre-allocated <code>std::vector</code> of <code>std::byte</code>. Introduced in C++17, <code>std::byte</code> is designed specifically for raw memory manipulation. Unlike <code>char</code> or <code>unsigned char</code>, it does not support standard arithmetic operations. This prevents accidental arithmetic bugs while still permitting the bit-wise operations necessary for low-level memory handling.</p>
+<h3 id="the-problem-random-deallocation">The Problem: Random Deallocation<a hidden class="anchor" aria-hidden="true" href="#the-problem-random-deallocation">#</a></h3>
+<p>A naive memory pool might simply increment a pointer for each allocation. However, because a KV-store experiences random deallocations, this approach quickly exhausts the vector&rsquo;s capacity, leaving fragmented, unusable memory spaces behind. Searching linearly for these freed spaces to reuse them would introduce unacceptable latency into the system.</p>
+<h3 id="the-solution-a-linked-free-list">The Solution: A Linked Free List<a hidden class="anchor" aria-hidden="true" href="#the-solution-a-linked-free-list">#</a></h3>
+<p>To address fragmentation without sacrificing speed, I implemented a Free List. This structure tracks the next available memory slot, ensuring both allocation and deallocation remain strictly $O(1)$ operations.</p>
+<p><strong>1. Initialization:</strong></p>
+<p>During construction, the memory pool formats the pre-allocated vector so that each empty slot stores a pointer to the next available slot. A private pointer, <code>next_slot</code>, is initialized to point to the first index.</p>
+<figure class="align-center ">
+    <img loading="lazy" src="memory-pool.png#center"
+         alt="Memory pool initialized state"/> <figcaption>
+            <p>Memory pool initialized state</p>
+        </figcaption>
+</figure>
+
+<p><strong>2. Allocation ($O(1)$):</strong></p>
+<p>When memory is requested, the pool performs the following steps without needing to search:</p>
+<ul>
+<li>
+<p>Reads the address currently held by <code>next_slot</code>.</p>
+</li>
+<li>
+<p>Updates <code>next_slot</code> to point to the address stored <em>within</em> that chunk (the next available slot in the chain).</p>
+</li>
+<li>
+<p>Returns the original address to the caller.</p>
+</li>
+</ul>
+<p><strong>3. Deallocation ($O(1)$):</strong></p>
+<p>When memory is freed, it is threaded back into the chain:</p>
+<ul>
+<li>
+<p>The pool writes the current <code>next_slot</code> address into the newly freed chunk.</p>
+</li>
+<li>
+<p><code>next_slot</code> is updated to point to this newly freed chunk.</p>
+</li>
+</ul>
+<figure class="align-center ">
+    <img loading="lazy" src="memory-pool-modified.png#center"
+         alt="After some allocations and deallocations"/> <figcaption>
+            <p>After some allocations and deallocations</p>
+        </figcaption>
+</figure>
+
+<h3 id="performance-impact">Performance Impact<a hidden class="anchor" aria-hidden="true" href="#performance-impact">#</a></h3>
+<p>This Free List design guarantees that finding or returning memory takes constant time, regardless of the pool&rsquo;s current capacity or fragmentation level. This constant-time operation is essential for maintaining the low-variance response times expected in performance-critical applications.</p>
+<h1></h1>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+    </ul>
+
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Yi&#39;s Portfolio</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>
