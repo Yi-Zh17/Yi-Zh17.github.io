@@ -51,3 +51,7 @@ C/C++ | Python | Java | Next.js
         [markup.goldmark.extensions.passthrough.delimiters]
           block = [['\[', '\]'], ['$$', '$$']]
           inline = [['$', '$']]
+
+[caches]
+  [caches.images]
+    dir = ':cacheDir/images'
