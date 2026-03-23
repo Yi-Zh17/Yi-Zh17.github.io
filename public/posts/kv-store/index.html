@@ -1,26 +1,26 @@
 <!DOCTYPE html>
 <html lang="en" dir="auto" data-theme="auto">
 
-<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<head><meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<meta name="robots" content="noindex, nofollow">
+<meta name="robots" content="index, follow">
 <title>High-Performance KV-Store Server | Yi&#39;s Portfolio</title>
 <meta name="keywords" content="">
 <meta name="description" content="Why an In-Memory KV-Store?
 In areas like High-Frequency Trading (HFT) and edge computing, system requirements emphasize not just overall throughput, but deterministic performance. Traditional relational databases often introduce high latency variance due to disk I/O and network overhead. To address this, I decided to build an in-memory Key-Value (KV) Store in C&#43;&#43; to explore how to achieve predictable, low-latency data querying.
 Additionally, I wanted to practice deploying software in heterogeneous environments. After developing the project locally on an x86 machine, I containerized the application using Docker and set up a GitHub Actions CI/CD pipeline to deploy it to an ARM-based AWS Graviton instance. This process helped me verify the system&rsquo;s cross-architecture portability.">
 <meta name="author" content="">
-<link rel="canonical" href="http://localhost:1313/posts/kv-store/">
+<link rel="canonical" href="https://Yi-Zh17.github.io/posts/kv-store/">
 <link crossorigin="anonymous" href="/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css" integrity="sha256-2jIR5e&#43;Ge/K3X9WmUVz&#43;1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as="style">
-<link rel="icon" href="http://localhost:1313/favicon.ico">
-<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
-<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
-<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
-<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<link rel="icon" href="https://Yi-Zh17.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://Yi-Zh17.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://Yi-Zh17.github.io/favicon-32x32.png">
+<link rel="apple-touch-icon" href="https://Yi-Zh17.github.io/apple-touch-icon.png">
+<link rel="mask-icon" href="https://Yi-Zh17.github.io/safari-pinned-tab.svg">
 <meta name="theme-color" content="#2e2e33">
 <meta name="msapplication-TileColor" content="#2e2e33">
-<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/kv-store/">
+<link rel="alternate" hreflang="en" href="https://Yi-Zh17.github.io/posts/kv-store/">
 <noscript>
     <style>
         #theme-toggle,
@@ -72,6 +72,71 @@ Additionally, I wanted to practice deploying software in heterogeneous environme
         document.querySelector("html").dataset.theme = 'light';
     }
 
+</script><meta property="og:url" content="https://Yi-Zh17.github.io/posts/kv-store/">
+  <meta property="og:site_name" content="Yi&#39;s Portfolio">
+  <meta property="og:title" content="High-Performance KV-Store Server">
+  <meta property="og:description" content="Why an In-Memory KV-Store? In areas like High-Frequency Trading (HFT) and edge computing, system requirements emphasize not just overall throughput, but deterministic performance. Traditional relational databases often introduce high latency variance due to disk I/O and network overhead. To address this, I decided to build an in-memory Key-Value (KV) Store in C&#43;&#43; to explore how to achieve predictable, low-latency data querying.
+Additionally, I wanted to practice deploying software in heterogeneous environments. After developing the project locally on an x86 machine, I containerized the application using Docker and set up a GitHub Actions CI/CD pipeline to deploy it to an ARM-based AWS Graviton instance. This process helped me verify the system’s cross-architecture portability.">
+  <meta property="og:locale" content="en_gb">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2026-03-12T08:36:22+00:00">
+    <meta property="article:modified_time" content="2026-03-12T08:36:22+00:00">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="High-Performance KV-Store Server">
+  <meta name="twitter:description" content="Why an In-Memory KV-Store? In areas like High-Frequency Trading (HFT) and edge computing, system requirements emphasize not just overall throughput, but deterministic performance. Traditional relational databases often introduce high latency variance due to disk I/O and network overhead. To address this, I decided to build an in-memory Key-Value (KV) Store in C&#43;&#43; to explore how to achieve predictable, low-latency data querying.
+Additionally, I wanted to practice deploying software in heterogeneous environments. After developing the project locally on an x86 machine, I containerized the application using Docker and set up a GitHub Actions CI/CD pipeline to deploy it to an ARM-based AWS Graviton instance. This process helped me verify the system’s cross-architecture portability.">
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "Posts",
+      "item": "https://Yi-Zh17.github.io/posts/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "High-Performance KV-Store Server",
+      "item": "https://Yi-Zh17.github.io/posts/kv-store/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "High-Performance KV-Store Server",
+  "name": "High-Performance KV-Store Server",
+  "description": "Why an In-Memory KV-Store? In areas like High-Frequency Trading (HFT) and edge computing, system requirements emphasize not just overall throughput, but deterministic performance. Traditional relational databases often introduce high latency variance due to disk I/O and network overhead. To address this, I decided to build an in-memory Key-Value (KV) Store in C++ to explore how to achieve predictable, low-latency data querying.\nAdditionally, I wanted to practice deploying software in heterogeneous environments. After developing the project locally on an x86 machine, I containerized the application using Docker and set up a GitHub Actions CI/CD pipeline to deploy it to an ARM-based AWS Graviton instance. This process helped me verify the system\u0026rsquo;s cross-architecture portability.\n",
+  "keywords": [
+    
+  ],
+  "articleBody": "Why an In-Memory KV-Store? In areas like High-Frequency Trading (HFT) and edge computing, system requirements emphasize not just overall throughput, but deterministic performance. Traditional relational databases often introduce high latency variance due to disk I/O and network overhead. To address this, I decided to build an in-memory Key-Value (KV) Store in C++ to explore how to achieve predictable, low-latency data querying.\nAdditionally, I wanted to practice deploying software in heterogeneous environments. After developing the project locally on an x86 machine, I containerized the application using Docker and set up a GitHub Actions CI/CD pipeline to deploy it to an ARM-based AWS Graviton instance. This process helped me verify the system’s cross-architecture portability.\nTech Stack Language: C++17 (Focusing on RAII and memory safety)\nBuild System: Makefile\nDevOps: Docker \u0026 GitHub Actions (CI/CD)\nCloud: AWS EC2 (ARM/Graviton)\nSystem Architecture Overview To maintain predictable execution times, I focused on reducing two primary performance bottlenecks: network latency and memory allocation overhead. The architecture separates the data storage logic from the concurrent access management. Here is how a request flows through the system:\n(Insert Diagram Here)\nDesign Principles Mitigating $O(n)$ Search Times: Standard hash maps, such as std::unordered_map, typically handle hash collisions using linked lists. As the load factor increases, traversing these lists degrades performance toward $O(n)$. I designed the Hash Table to minimize this degradation and maintain $O(1)$ lookup times even under heavy load.\nMinimizing OS Allocator Overhead: Using standard new or malloc calls involves the OS memory allocator, introducing non-deterministic execution time due to system calls and lock contention. To resolve this, I implemented a Thread-Local Memory Pool. Each thread is assigned a pre-allocated chunk of memory, enabling independent allocations and deallocations without OS intervention.\nCore Components To keep the system modular and maintainable, I divided it into five components:\nMemory Pool: Handles raw memory management, bypassing the standard heap.\nHash Table: The core data structure, optimized for fast lookups and cache efficiency.\nThread Pool: Manages worker threads to process multiple concurrent client requests.\nServer: A TCP interface that handles network communication.\nLogger: A thread-safe logging utility to monitor system states.\nMemory Pool This component is central to achieving predictable latency. By managing memory at the application level, the system avoids the overhead and variance associated with the standard heap.\nWhy std::byte? The memory pool is built on a pre-allocated std::vector of std::byte. Introduced in C++17, std::byte is designed specifically for raw memory manipulation. Unlike char or unsigned char, it does not support standard arithmetic operations. This prevents accidental arithmetic bugs while still permitting the bit-wise operations necessary for low-level memory handling.\nThe Problem: Random Deallocation A naive memory pool might simply increment a pointer for each allocation. However, because a KV-store experiences random deallocations, this approach quickly exhausts the vector’s capacity, leaving fragmented, unusable memory spaces behind. Searching linearly for these freed spaces to reuse them would introduce unacceptable latency into the system.\nThe Solution: A Linked Free List To address fragmentation without sacrificing speed, I implemented a Free List. This structure tracks the next available memory slot, ensuring both allocation and deallocation remain strictly $O(1)$ operations.\n1. Initialization:\nDuring construction, the memory pool formats the pre-allocated vector so that each empty slot stores a pointer to the next available slot. A private pointer, next_slot, is initialized to point to the first index.\nMemory pool initialized state\n2. Allocation ($O(1)$):\nWhen memory is requested, the pool performs the following steps without needing to search:\nReads the address currently held by next_slot.\nUpdates next_slot to point to the address stored within that chunk (the next available slot in the chain).\nReturns the original address to the caller.\n3. Deallocation ($O(1)$):\nWhen memory is freed, it is threaded back into the chain:\nThe pool writes the current next_slot address into the newly freed chunk.\nnext_slot is updated to point to this newly freed chunk.\nAfter some allocations and deallocations\nPerformance Impact This Free List design guarantees that finding or returning memory takes constant time, regardless of the pool’s current capacity or fragmentation level. This constant-time operation is essential for maintaining the low-variance response times expected in performance-critical applications.\n",
+  "wordCount" : "684",
+  "inLanguage": "en",
+  "datePublished": "2026-03-12T08:36:22Z",
+  "dateModified": "2026-03-12T08:36:22Z",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://Yi-Zh17.github.io/posts/kv-store/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Yi's Portfolio",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://Yi-Zh17.github.io/favicon.ico"
+    }
+  }
+}
 </script>
     
         <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
@@ -94,7 +159,7 @@ Additionally, I wanted to practice deploying software in heterogeneous environme
     <header class="header">
     <nav class="nav">
         <div class="logo">
-            <a href="http://localhost:1313/" accesskey="h" title="Yi&#39;s Portfolio (Alt + H)">Yi&#39;s Portfolio</a>
+            <a href="https://Yi-Zh17.github.io/" accesskey="h" title="Yi&#39;s Portfolio (Alt + H)">Yi&#39;s Portfolio</a>
             <div class="logo-switches">
                 <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
                     <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
@@ -120,17 +185,17 @@ Additionally, I wanted to practice deploying software in heterogeneous environme
         </div>
         <ul id="menu">
             <li>
-                <a href="http://localhost:1313/posts/" title="Posts">
+                <a href="https://Yi-Zh17.github.io/posts/" title="Posts">
                     <span>Posts</span>
                 </a>
             </li>
             <li>
-                <a href="http://localhost:1313/tags/" title="Tags">
+                <a href="https://Yi-Zh17.github.io/tags/" title="Tags">
                     <span>Tags</span>
                 </a>
             </li>
             <li>
-                <a href="http://localhost:1313/about/" title="About Me">
+                <a href="https://Yi-Zh17.github.io/about/" title="About Me">
                     <span>About Me</span>
                 </a>
             </li>
@@ -141,15 +206,9 @@ Additionally, I wanted to practice deploying software in heterogeneous environme
 
 <article class="post-single">
   <header class="post-header">
-    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <div class="breadcrumbs"><a href="https://Yi-Zh17.github.io/">Home</a>&nbsp;»&nbsp;<a href="https://Yi-Zh17.github.io/posts/">Posts</a></div>
     <h1 class="post-title entry-hint-parent">
       High-Performance KV-Store Server
-      <span class="entry-hint" title="Draft">
-        <svg xmlns="http://www.w3.org/2000/svg" height="35" viewBox="0 -960 960 960" fill="currentColor">
-          <path
-            d="M160-410v-60h300v60H160Zm0-165v-60h470v60H160Zm0-165v-60h470v60H160Zm360 580v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q9 9 13 20t4 22q0 11-4.5 22.5T862.09-380L643-160H520Zm300-263-37-37 37 37ZM580-220h38l121-122-18-19-19-18-122 121v38Zm141-141-19-18 37 37-18-19Z" />
-        </svg>
-      </span>
     </h1>
     <div class="post-meta"><span title='2026-03-12 08:36:22 +0000 UTC'>March 12, 2026</span>
 
@@ -309,7 +368,7 @@ Additionally, I wanted to practice deploying software in heterogeneous environme
     </main>
     
 <footer class="footer">
-        <span>&copy; 2026 <a href="http://localhost:1313/">Yi&#39;s Portfolio</a></span> · 
+        <span>&copy; 2026 <a href="https://Yi-Zh17.github.io/">Yi&#39;s Portfolio</a></span> · 
 
     <span>
         Powered by
