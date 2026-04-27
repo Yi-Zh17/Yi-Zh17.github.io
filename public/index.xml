@@ -2,26 +2,26 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>Yi&#39;s Portfolio</title>
-    <link>https://Yi-Zh17.github.io/</link>
+    <link>http://localhost:1313/</link>
     <description>Recent content on Yi&#39;s Portfolio</description>
     <generator>Hugo</generator>
     <language>en-gb</language>
     <lastBuildDate>Thu, 12 Mar 2026 08:36:22 +0000</lastBuildDate>
-    <atom:link href="https://Yi-Zh17.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="http://localhost:1313/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>High-Performance KV-Store Server</title>
-      <link>https://Yi-Zh17.github.io/posts/kv-store/</link>
+      <link>http://localhost:1313/posts/kv-store/</link>
       <pubDate>Thu, 12 Mar 2026 08:36:22 +0000</pubDate>
-      <guid>https://Yi-Zh17.github.io/posts/kv-store/</guid>
+      <guid>http://localhost:1313/posts/kv-store/</guid>
       <description>&lt;h1 id=&#34;why-an-in-memory-kv-store&#34;&gt;Why an In-Memory KV-Store?&lt;/h1&gt;
-&lt;p&gt;In areas like High-Frequency Trading (HFT) and edge computing, system requirements emphasize not just overall throughput, but deterministic performance. Traditional relational databases often introduce high latency variance due to disk I/O and network overhead. To address this, I decided to build an in-memory Key-Value (KV) Store in C++ to explore how to achieve predictable, low-latency data querying.&lt;/p&gt;
-&lt;p&gt;Additionally, I wanted to practice deploying software in heterogeneous environments. After developing the project locally on an x86 machine, I containerized the application using Docker and set up a GitHub Actions CI/CD pipeline to deploy it to an ARM-based AWS Graviton instance. This process helped me verify the system&amp;rsquo;s cross-architecture portability.&lt;/p&gt;</description>
+&lt;p&gt;In areas like High-Frequency Trading (HFT) and edge computing, system requirements emphasize not just overall throughput, but deterministic performance. Traditional relational databases often introduce high latency variance due to disk I/O and network overhead. To address this, I decided to build an in-memory Key-Value (KV) Store in C++ to explore how to implement data querying that satisfies the requirements.&lt;/p&gt;
+&lt;p&gt;An in-memory KV store is a database that runs in the RAM instead of on disks. It provides ultra-fast read/write operations of unique keys paired with values. It is especially useful for caching, real-time analysis, session storage, etc. The goal of my implementation is to achieve low latency, high throughput, predictable performance, and concurrency support.&lt;/p&gt;</description>
     </item>
     <item>
       <title>About Me</title>
-      <link>https://Yi-Zh17.github.io/about/</link>
+      <link>http://localhost:1313/about/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      <guid>https://Yi-Zh17.github.io/about/</guid>
+      <guid>http://localhost:1313/about/</guid>
       <description>A summary of myself</description>
     </item>
   </channel>
