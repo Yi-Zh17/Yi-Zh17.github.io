@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>FraudShield: Running a Neural Network Inside a Spring Boot Service | Yi&#39;s Portfolio</title>
+<meta name="keywords" content="">
+<meta name="description" content="FraudShield: Running a Neural Network Inside a Spring Boot Service
+I built FraudShield to practice end-to-end ML deployment — specifically the part that tutorials skip: taking a trained model and making it actually work inside a real backend service. The core challenge was figuring out how to ship a PyTorch model as something a Java application could run at inference time, without spinning up a Python sidecar or calling a remote API.">
+<meta name="author" content="">
+<link rel="canonical" href="http://localhost:1313/posts/fraudshield/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css" integrity="sha256-2jIR5e&#43;Ge/K3X9WmUVz&#43;1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/fraudshield/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+    
+        <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+
+<script>
+  MathJax = {
+    tex: {
+      displayMath: [['\\[', '\\]'], ['$$', '$$']],  
+      inlineMath: [['$', '$']]                  
+    },
+    loader:{
+      load: ['ui/safe']
+    },
+  };
+</script>
+
+    
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://localhost:1313/" accesskey="h" title="Yi&#39;s Portfolio (Alt + H)">Yi&#39;s Portfolio</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/posts/" title="Posts">
+                    <span>Posts</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/tags/" title="Tags">
+                    <span>Tags</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About Me">
+                    <span>About Me</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      FraudShield: Running a Neural Network Inside a Spring Boot Service
+    </h1>
+    <div class="post-meta"><span title='2026-04-03 00:00:00 +0000 UTC'>April 3, 2026</span>
+
+</div>
+  </header> <div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#fraudshield-running-a-neural-network-inside-a-spring-boot-service" aria-label="FraudShield: Running a Neural Network Inside a Spring Boot Service">FraudShield: Running a Neural Network Inside a Spring Boot Service</a><ul>
+                        
+                <li>
+                    <a href="#tech-stack" aria-label="Tech Stack">Tech Stack</a></li></ul>
+                </li>
+                <li>
+                    <a href="#architecture-overview" aria-label="Architecture Overview">Architecture Overview</a></li>
+                <li>
+                    <a href="#the-neural-network" aria-label="The Neural Network">The Neural Network</a></li>
+                <li>
+                    <a href="#feature-engineering" aria-label="Feature Engineering">Feature Engineering</a></li>
+                <li>
+                    <a href="#fraudcheckservice-orchestration-and-assembly" aria-label="FraudCheckService: Orchestration and Assembly">FraudCheckService: Orchestration and Assembly</a><ul>
+                        
+                <li>
+                    <a href="#model-loading-at-startup" aria-label="Model Loading at Startup">Model Loading at Startup</a></li>
+                <li>
+                    <a href="#feature-assembly" aria-label="Feature Assembly">Feature Assembly</a></li>
+                <li>
+                    <a href="#integrity-validation" aria-label="Integrity Validation">Integrity Validation</a></li></ul>
+                </li>
+                <li>
+                    <a href="#modelpredictionservice-onnx-runtime" aria-label="ModelPredictionService: ONNX Runtime">ModelPredictionService: ONNX Runtime</a></li>
+                <li>
+                    <a href="#persistence-audit-logging" aria-label="Persistence: Audit Logging">Persistence: Audit Logging</a></li>
+                <li>
+                    <a href="#testing" aria-label="Testing">Testing</a></li>
+                <li>
+                    <a href="#deployment" aria-label="Deployment">Deployment</a><ul>
+                        
+                <li>
+                    <a href="#docker" aria-label="Docker">Docker</a></li>
+                <li>
+                    <a href="#github-actions--azure" aria-label="GitHub Actions → Azure">GitHub Actions → Azure</a></li>
+                <li>
+                    <a href="#kubernetes" aria-label="Kubernetes">Kubernetes</a></li></ul>
+                </li>
+                <li>
+                    <a href="#limitations--future-work" aria-label="Limitations &amp; future work">Limitations &amp; future work</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><h1 id="fraudshield-running-a-neural-network-inside-a-spring-boot-service">FraudShield: Running a Neural Network Inside a Spring Boot Service<a hidden class="anchor" aria-hidden="true" href="#fraudshield-running-a-neural-network-inside-a-spring-boot-service">#</a></h1>
+<p>I built FraudShield to practice end-to-end ML deployment — specifically the part that tutorials skip: taking a trained model and making it actually work inside a real backend service. The core challenge was figuring out how to ship a PyTorch model as something a Java application could run at inference time, without spinning up a Python sidecar or calling a remote API.</p>
+<p>The result is a Spring Boot web application that accepts credit card transaction details, assembles a 75-dimensional feature vector in Java, runs it through a neural network via ONNX Runtime, and persists every prediction to Azure SQL Server for auditing. The whole thing is containerised and deployed to Azure Web App for Containers via a GitHub Actions CI/CD pipeline.</p>
+<p>The dataset is the <a href="https://www.datacamp.com/datalab/datasets/dataset-python-credit-card-fraud">DataCamp Credit Card Fraud dataset</a>, which contains ~1.3 million synthetic US credit card transactions labelled as fraudulent or legitimate.</p>
+<hr>
+<h2 id="tech-stack">Tech Stack<a hidden class="anchor" aria-hidden="true" href="#tech-stack">#</a></h2>
+<ul>
+<li><strong>Java 17</strong> / <strong>Spring Boot 3.5.12</strong> — web framework, MVC, JPA</li>
+<li><strong>ONNX Runtime 1.22</strong> (Java bindings) — in-process model inference</li>
+<li><strong>PyTorch</strong> — model training (offline)</li>
+<li><strong>Thymeleaf</strong> — server-side HTML templating</li>
+<li><strong>Tailwind CSS v4</strong> — utility-first styling</li>
+<li><strong>Azure SQL Server</strong> + <strong>Azure Identity</strong> — audit log persistence with passwordless Entra ID auth</li>
+<li><strong>Docker</strong> (multi-stage build with Spring Boot layer extraction)</li>
+<li><strong>Kubernetes</strong> — deployment and service manifests</li>
+<li><strong>GitHub Actions</strong> — CI/CD to Azure Web App for Containers</li>
+</ul>
+<hr>
+<h1 id="architecture-overview">Architecture Overview<a hidden class="anchor" aria-hidden="true" href="#architecture-overview">#</a></h1>
+<p>The central design decision was keeping inference in-process. Rather than calling a Python model server over HTTP, the ONNX model file is bundled directly into the Spring Boot jar and loaded once at startup via ONNX Runtime&rsquo;s Java bindings. Every prediction call is a local method invocation — no network hop, no serialisation overhead, no separate process to manage.</p>
+<pre tabindex="0"><code>Browser (Thymeleaf + Tailwind CSS)
+        │  POST /fraud/check
+        ▼
+  FraudController
+        │  FraudCheckRequest (Java record)
+        ▼
+  FraudCheckService ──────────────────────► FraudAuditRepository
+        │  process(request)                        │
+        ▼                                    Azure SQL Server
+  FraudCheckUtil                             (fraud_audit_logs)
+  (75-dim feature vector)
+        │
+        ▼
+  ModelPredictionService
+  (ONNX Runtime session)
+        │  float[] → OnnxTensor → session.run()
+        ▼
+  raw logit → sigmoid → probability → FraudCheckResponse
+</code></pre><p><strong>One request, end to end.</strong> The user submits a form with transaction details. <code>FraudController</code> deserialises the form into a <code>FraudCheckRequest</code> record and hands it to <code>FraudCheckService</code>. The service builds the feature vector via <code>FraudCheckUtil</code>, validates it, runs it through <code>ModelPredictionService</code>, applies sigmoid once to convert the raw logit to a probability, writes an audit record to Azure SQL, and returns a <code>FraudCheckResponse</code> containing the real probability. The controller reads that probability directly for display — no further transformation needed.</p>
+<hr>
+<h1 id="the-neural-network">The Neural Network<a hidden class="anchor" aria-hidden="true" href="#the-neural-network">#</a></h1>
+<p>The model is a simple fully-connected network trained in PyTorch on 1,296,675 transactions (80/20 train/val split). Architecture:</p>
+<pre tabindex="0"><code>Input (75) → Linear(75, 75) → ReLU
+           → Linear(75, 60) → ReLU
+           → Linear(60, 45) → ReLU
+           → Linear(45, 30) → ReLU
+           → Linear(30, 15) → ReLU
+           → Linear(15, 1)   [raw logit]
+</code></pre><p>Training used <code>BCEWithLogitsLoss</code> (which applies sigmoid internally) and Adam at <code>lr=1e-3</code>, batch size 32, for 5 epochs. Validation accuracy across epochs:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Epoch</th>
+          <th>Val Accuracy</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td>99.79%</td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td>99.81%</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>99.81%</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>99.79%</td>
+      </tr>
+      <tr>
+          <td>5</td>
+          <td>99.82%</td>
+      </tr>
+  </tbody>
+</table>
+<p>The model converges quickly and stays stable — there&rsquo;s no meaningful degradation across 5 epochs, and the variance between runs is under 0.03 percentage points.</p>
+<p>Worth keeping in mind: the dataset is heavily imbalanced, with around 0.6% of transactions labelled fraudulent. A naïve classifier that always predicts &ldquo;not fraud&rdquo; would score ~99.4% accuracy, so the headline numbers have to be read in that context. Precision and recall on the fraud class would tell a more complete story, and computing them is the natural next step for a more rigorous evaluation.</p>
+<p>After training, the model is exported to ONNX using <code>torch.onnx.export</code> with <code>dynamo=True</code>:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>example <span style="color:#f92672">=</span> torch<span style="color:#f92672">.</span>randn(<span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">75</span>, device<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;cuda&#39;</span>)
+</span></span><span style="display:flex;"><span>torch<span style="color:#f92672">.</span>onnx<span style="color:#f92672">.</span>export(
+</span></span><span style="display:flex;"><span>    model, example, <span style="color:#e6db74">&#34;model.onnx&#34;</span>,
+</span></span><span style="display:flex;"><span>    export_params<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>,
+</span></span><span style="display:flex;"><span>    do_constant_folding<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>,
+</span></span><span style="display:flex;"><span>    input_names<span style="color:#f92672">=</span>[<span style="color:#e6db74">&#39;input&#39;</span>],
+</span></span><span style="display:flex;"><span>    output_names<span style="color:#f92672">=</span>[<span style="color:#e6db74">&#39;output&#39;</span>],
+</span></span><span style="display:flex;"><span>    dynamo<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>
+</span></span><span style="display:flex;"><span>)
+</span></span></code></pre></div><p>The export produces two files: <code>model.onnx</code> (the graph, ~20 KB) and <code>model.onnx.data</code> (the weights, ~58 KB). Both are committed into <code>src/main/resources/static/</code> and bundled into the jar.</p>
+<hr>
+<h1 id="feature-engineering">Feature Engineering<a hidden class="anchor" aria-hidden="true" href="#feature-engineering">#</a></h1>
+<p>The raw form inputs are 10 fields. The model expects a 75-dimensional <code>float32</code> vector. All the encoding logic that was done in Python at training time has to be replicated precisely in Java — if the encodings differ, the model produces garbage output regardless of how good the training was.</p>
+<p>Here&rsquo;s how each field maps to the vector:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Positions</th>
+          <th>Field</th>
+          <th>Encoding</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>0–2</td>
+          <td><code>amount</code>, <code>city_pop</code>, <code>age</code></td>
+          <td>Z-score normalisation (hardcoded μ, σ from training data)</td>
+      </tr>
+      <tr>
+          <td>3–16</td>
+          <td><code>category</code> (14 values)</td>
+          <td>One-hot</td>
+      </tr>
+      <tr>
+          <td>17–67</td>
+          <td><code>state</code> (51 values)</td>
+          <td>One-hot</td>
+      </tr>
+      <tr>
+          <td>68</td>
+          <td><code>merchant</code></td>
+          <td>Frequency encoding</td>
+      </tr>
+      <tr>
+          <td>69</td>
+          <td><code>gender</code></td>
+          <td>Binary (M→0, F→1)</td>
+      </tr>
+      <tr>
+          <td>70</td>
+          <td><code>job</code></td>
+          <td>Frequency encoding</td>
+      </tr>
+      <tr>
+          <td>71–72</td>
+          <td><code>transaction_hour</code></td>
+          <td>Cyclic: sin/cos over 24</td>
+      </tr>
+      <tr>
+          <td>73–74</td>
+          <td><code>transaction_dayOfWeek</code></td>
+          <td>Cyclic: sin/cos over 7</td>
+      </tr>
+  </tbody>
+</table>
+<p>All of this lives in <code>FraudCheckUtil</code>. The Z-score normalisation for amount looks like this:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">double</span> <span style="color:#a6e22e">normalization</span>(String name, <span style="color:#66d9ef">double</span> num) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (name.<span style="color:#a6e22e">equals</span>(<span style="color:#e6db74">&#34;amt&#34;</span>)) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">double</span> amt_mean <span style="color:#f92672">=</span> 70.<span style="color:#a6e22e">35103545607033</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">double</span> amt_std  <span style="color:#f92672">=</span> 160.<span style="color:#a6e22e">3159767533844</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> (num <span style="color:#f92672">-</span> amt_mean) <span style="color:#f92672">/</span> amt_std;
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#f92672">-</span>1; <span style="color:#75715e">// signals invalid call to checkIntegrity()</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The mean and standard deviation are the values computed over the full training set and hardcoded here. This is a deployment constraint: the Java side has no access to the original scaler object, so the statistics have to be copied manually. Any dataset update would require recomputing these values and redeploying.</p>
+<p><strong>Cyclic encoding</strong> is worth explaining briefly. Hour of day and day of week are cyclical — hour 23 and hour 0 are adjacent, not distant. Encoding them as plain integers would mislead the model. Instead, each is encoded as <code>(sin(2π·n/period), cos(2π·n/period))</code>, which places adjacent hours close together in a 2D circular space:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">double</span><span style="color:#f92672">[]</span> <span style="color:#a6e22e">hourEncoding</span>(<span style="color:#66d9ef">int</span> num) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">double</span><span style="color:#f92672">[]</span> result <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#66d9ef">double</span><span style="color:#f92672">[</span>2<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (num <span style="color:#f92672">&lt;</span> 0 <span style="color:#f92672">||</span> num <span style="color:#f92672">&gt;</span> 23) <span style="color:#66d9ef">return</span> result; <span style="color:#75715e">// zeros → caught by checkIntegrity</span>
+</span></span><span style="display:flex;"><span>    result<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> Math.<span style="color:#a6e22e">sin</span>(2 <span style="color:#f92672">*</span> Math.<span style="color:#a6e22e">PI</span> <span style="color:#f92672">*</span> num <span style="color:#f92672">/</span> 24);
+</span></span><span style="display:flex;"><span>    result<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> Math.<span style="color:#a6e22e">cos</span>(2 <span style="color:#f92672">*</span> Math.<span style="color:#a6e22e">PI</span> <span style="color:#f92672">*</span> num <span style="color:#f92672">/</span> 24);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> result;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>Frequency encoding</strong> for merchant and job replaces each string value with its relative frequency in the training dataset. A merchant that appeared in 0.1% of training transactions gets encoded as <code>0.001</code>. These mappings are pre-computed in Python and shipped as two JSON files (<code>job_frequencies.json</code> — 494 entries, <code>merchant_frequencies.json</code> — 693 entries). Unknown values default to <code>0.0</code> rather than throwing an error, which is a reasonable choice: an unseen merchant is treated as rare.</p>
+<hr>
+<h1 id="fraudcheckservice-orchestration-and-assembly">FraudCheckService: Orchestration and Assembly<a hidden class="anchor" aria-hidden="true" href="#fraudcheckservice-orchestration-and-assembly">#</a></h1>
+<p><code>FraudCheckService</code> is the one place that ties everything together. It owns the model session, calls <code>FraudCheckUtil</code> to build the feature vector, validates it, runs inference, and persists the audit record — all in a single <code>@Transactional</code> method.</p>
+<h2 id="model-loading-at-startup">Model Loading at Startup<a hidden class="anchor" aria-hidden="true" href="#model-loading-at-startup">#</a></h2>
+<p>ONNX Runtime requires a file path to load a session, not a stream. The model files live inside the jar as classpath resources, which means they need to be copied to a temp directory at startup before a session can be created:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Autowired</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#a6e22e">FraudCheckService</span>(FraudAuditRepository auditRepository) <span style="color:#66d9ef">throws</span> Exception {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">auditRepository</span> <span style="color:#f92672">=</span> auditRepository;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    ClassPathResource modelRes <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ClassPathResource(<span style="color:#e6db74">&#34;static/model.onnx&#34;</span>);
+</span></span><span style="display:flex;"><span>    ClassPathResource dataRes  <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ClassPathResource(<span style="color:#e6db74">&#34;static/model.onnx.data&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Path tempDir   <span style="color:#f92672">=</span> Files.<span style="color:#a6e22e">createTempDirectory</span>(<span style="color:#e6db74">&#34;fraud_model&#34;</span>);
+</span></span><span style="display:flex;"><span>    Path modelPath <span style="color:#f92672">=</span> tempDir.<span style="color:#a6e22e">resolve</span>(<span style="color:#e6db74">&#34;model.onnx&#34;</span>);
+</span></span><span style="display:flex;"><span>    Path dataPath  <span style="color:#f92672">=</span> tempDir.<span style="color:#a6e22e">resolve</span>(<span style="color:#e6db74">&#34;model.onnx.data&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Files.<span style="color:#a6e22e">copy</span>(modelRes.<span style="color:#a6e22e">getInputStream</span>(), modelPath, StandardCopyOption.<span style="color:#a6e22e">REPLACE_EXISTING</span>);
+</span></span><span style="display:flex;"><span>    Files.<span style="color:#a6e22e">copy</span>(dataRes.<span style="color:#a6e22e">getInputStream</span>(),  dataPath,  StandardCopyOption.<span style="color:#a6e22e">REPLACE_EXISTING</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">model</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ModelPredictionService(modelPath.<span style="color:#a6e22e">toString</span>());
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Both files must land in the same directory with the same names — ONNX Runtime resolves <code>model.onnx.data</code> by convention relative to the <code>.onnx</code> file. The session is created once and reused for the lifetime of the application.</p>
+<h2 id="feature-assembly">Feature Assembly<a hidden class="anchor" aria-hidden="true" href="#feature-assembly">#</a></h2>
+<p><code>FraudCheckService.process()</code> calls each encoding method on <code>FraudCheckUtil</code> and assembles the results into the fixed-layout 75-element array using <code>System.arraycopy</code> for the sub-arrays:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">double</span><span style="color:#f92672">[]</span> result <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#66d9ef">double</span><span style="color:#f92672">[</span>75<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>result<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> amt;       <span style="color:#75715e">// normalised amount</span>
+</span></span><span style="display:flex;"><span>result<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> city_pop;  <span style="color:#75715e">// normalised city population</span>
+</span></span><span style="display:flex;"><span>result<span style="color:#f92672">[</span>2<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> age;       <span style="color:#75715e">// normalised age</span>
+</span></span><span style="display:flex;"><span>System.<span style="color:#a6e22e">arraycopy</span>(category, 0, result, 3,  14); <span style="color:#75715e">// one-hot category</span>
+</span></span><span style="display:flex;"><span>System.<span style="color:#a6e22e">arraycopy</span>(state,    0, result, 17, 51); <span style="color:#75715e">// one-hot state</span>
+</span></span><span style="display:flex;"><span>result<span style="color:#f92672">[</span>68<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> merchant; <span style="color:#75715e">// frequency-encoded</span>
+</span></span><span style="display:flex;"><span>result<span style="color:#f92672">[</span>69<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> gender;   <span style="color:#75715e">// binary</span>
+</span></span><span style="display:flex;"><span>result<span style="color:#f92672">[</span>70<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> job;      <span style="color:#75715e">// frequency-encoded</span>
+</span></span><span style="display:flex;"><span>System.<span style="color:#a6e22e">arraycopy</span>(hour, 0, result, 71, 2);      <span style="color:#75715e">// cyclic hour</span>
+</span></span><span style="display:flex;"><span>System.<span style="color:#a6e22e">arraycopy</span>(day,  0, result, 73, 2);      <span style="color:#75715e">// cyclic day of week</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">return</span> result;
+</span></span></code></pre></div><p>The layout has to match exactly what the model was trained with. The Python training notebook assembles the DataFrame columns in the same order: normalised numerics first, then one-hot categoricals, then frequency-encoded fields, then cyclic temporals.</p>
+<h2 id="integrity-validation">Integrity Validation<a hidden class="anchor" aria-hidden="true" href="#integrity-validation">#</a></h2>
+<p>Before sending the vector to the model, <code>checkIntegrity()</code> validates it:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">checkIntegrity</span>(<span style="color:#66d9ef">double</span><span style="color:#f92672">[]</span> features) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Normalisations return -1 on invalid input</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (features<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#f92672">-</span>1 <span style="color:#f92672">||</span> features<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#f92672">-</span>1 <span style="color:#f92672">||</span> features<span style="color:#f92672">[</span>2<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#f92672">-</span>1)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> RuntimeException(<span style="color:#e6db74">&#34;Invalid normalisation input.&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// One-hot arrays must sum to exactly 1.0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">double</span> sum <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> 3; i <span style="color:#f92672">&lt;</span> 17; i<span style="color:#f92672">++</span>) sum <span style="color:#f92672">+=</span> features<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (sum <span style="color:#f92672">!=</span> 1.<span style="color:#a6e22e">0</span>) <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> RuntimeException(<span style="color:#e6db74">&#34;Invalid category encoding.&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    sum <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> 17; i <span style="color:#f92672">&lt;</span> 68; i<span style="color:#f92672">++</span>) sum <span style="color:#f92672">+=</span> features<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (sum <span style="color:#f92672">!=</span> 1.<span style="color:#a6e22e">0</span>) <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> RuntimeException(<span style="color:#e6db74">&#34;Invalid state encoding.&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Gender must be 0.0 or 1.0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (features<span style="color:#f92672">[</span>69<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#f92672">-</span>1) <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> RuntimeException(<span style="color:#e6db74">&#34;Invalid gender input.&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Cyclic pairs of (0, 0) signal out-of-range input</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (features<span style="color:#f92672">[</span>71<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> 0.<span style="color:#a6e22e">0</span> <span style="color:#f92672">&amp;&amp;</span> features<span style="color:#f92672">[</span>72<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> 0.<span style="color:#a6e22e">0</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> RuntimeException(<span style="color:#e6db74">&#34;Invalid hour input.&#34;</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (features<span style="color:#f92672">[</span>73<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> 0.<span style="color:#a6e22e">0</span> <span style="color:#f92672">&amp;&amp;</span> features<span style="color:#f92672">[</span>74<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> 0.<span style="color:#a6e22e">0</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> RuntimeException(<span style="color:#e6db74">&#34;Invalid day input.&#34;</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>This is a sanity check rather than a security boundary — the inputs come from a controlled form with predefined options, so malformed data is unlikely in practice. But catching encoding bugs early is useful during development, and the <code>-1</code> sentinel from <code>normalization()</code> makes invalid calls visible without needing exceptions in the hot path.</p>
+<hr>
+<h1 id="modelpredictionservice-onnx-runtime">ModelPredictionService: ONNX Runtime<a hidden class="anchor" aria-hidden="true" href="#modelpredictionservice-onnx-runtime">#</a></h1>
+<p><code>ModelPredictionService</code> is a thin wrapper around the ONNX Runtime Java API. It holds one <code>OrtSession</code> for the lifetime of the application and exposes a single <code>predict(double[])</code> method:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">double</span> <span style="color:#a6e22e">predict</span>(<span style="color:#66d9ef">double</span><span style="color:#f92672">[]</span> features) <span style="color:#66d9ef">throws</span> OrtException {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ONNX Runtime expects float32, Java gives us double</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">float</span><span style="color:#f92672">[]</span> inputData <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#66d9ef">float</span><span style="color:#f92672">[</span>features.<span style="color:#a6e22e">length</span><span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> 0; i <span style="color:#f92672">&lt;</span> features.<span style="color:#a6e22e">length</span>; i<span style="color:#f92672">++</span>) {
+</span></span><span style="display:flex;"><span>        inputData<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> (<span style="color:#66d9ef">float</span>) features<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">long</span><span style="color:#f92672">[]</span> shape <span style="color:#f92672">=</span> {1, features.<span style="color:#a6e22e">length</span>};  <span style="color:#75715e">// batch size 1</span>
+</span></span><span style="display:flex;"><span>    OnnxTensor inputTensor <span style="color:#f92672">=</span> OnnxTensor.<span style="color:#a6e22e">createTensor</span>(
+</span></span><span style="display:flex;"><span>        env, FloatBuffer.<span style="color:#a6e22e">wrap</span>(inputData), shape
+</span></span><span style="display:flex;"><span>    );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    OrtSession.<span style="color:#a6e22e">Result</span> result <span style="color:#f92672">=</span> session.<span style="color:#a6e22e">run</span>(
+</span></span><span style="display:flex;"><span>        Collections.<span style="color:#a6e22e">singletonMap</span>(<span style="color:#e6db74">&#34;input&#34;</span>, inputTensor)
+</span></span><span style="display:flex;"><span>    );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">float</span><span style="color:#f92672">[]</span> output <span style="color:#f92672">=</span> (<span style="color:#66d9ef">float</span><span style="color:#f92672">[]</span>) result.<span style="color:#a6e22e">get</span>(0).<span style="color:#a6e22e">getValue</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> output<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>; <span style="color:#75715e">// raw logit — sigmoid is applied in FraudCheckService</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>A few things worth noting. The method takes <code>double[]</code> but the model expects <code>float32</code>. The explicit cast (<code>(float) features[i]</code>) causes a small precision loss, which is acceptable for a sigmoid classifier — the output is a probability estimate, not a scientific measurement.</p>
+<p>The input name <code>&quot;input&quot;</code> must match the <code>input_names</code> argument from the <code>torch.onnx.export</code> call. If they differ, the session throws at runtime.</p>
+<p>The class implements <code>AutoCloseable</code> so the session and environment can be shut down cleanly, though in this application the service lives for the full process lifetime and is never explicitly closed.</p>
+<hr>
+<h1 id="persistence-audit-logging">Persistence: Audit Logging<a hidden class="anchor" aria-hidden="true" href="#persistence-audit-logging">#</a></h1>
+<p>Every prediction is written to Azure SQL Server via JPA. The <code>FraudAudit</code> entity captures a subset of the input alongside the model&rsquo;s output:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Entity</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@Table</span>(name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;fraud_audit_logs&#34;</span>)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">FraudAudit</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Id</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@GeneratedValue</span>(strategy <span style="color:#f92672">=</span> GenerationType.<span style="color:#a6e22e">IDENTITY</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> Long id;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">double</span> amount;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> String state;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> String merchant;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">double</span> predictedProbability;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">boolean</span> isFraud;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Column</span>(updatable <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> LocalDateTime timestamp;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@PrePersist</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">protected</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">onCreate</span>() {
+</span></span><span style="display:flex;"><span>        timestamp <span style="color:#f92672">=</span> LocalDateTime.<span style="color:#a6e22e">now</span>();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The <code>@PrePersist</code> hook ensures the timestamp is set server-side at insert time and is never modifiable afterwards (<code>updatable = false</code>). Hibernate with <code>ddl-auto=update</code> creates the table automatically on first boot if it doesn&rsquo;t exist.</p>
+<p>Authentication to Azure SQL uses passwordless Entra ID via the JDBC connection string:</p>
+<pre tabindex="0"><code>jdbc:sqlserver://${DB_SERVER_NAME}.database.windows.net:1433;
+  database=${DB_NAME};
+  encrypt=true;
+  Authentication=ActiveDirectoryDefault;
+</code></pre><p><code>ActiveDirectoryDefault</code> picks up the ambient Azure identity — the managed identity of the web app in production, or your local <code>az login</code> credentials in development. No passwords in config or environment variables.</p>
+<hr>
+<h1 id="testing">Testing<a hidden class="anchor" aria-hidden="true" href="#testing">#</a></h1>
+<p><code>FraudCheckUtilTest</code> covers each encoding function with concrete values sampled from the training data and a few edge cases. For example, the normalisation tests verify both a typical amount and an out-of-range call:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Test</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testNormalization</span>() {
+</span></span><span style="display:flex;"><span>    assertEquals(<span style="color:#f92672">-</span>0.<span style="color:#a6e22e">4078</span>, util.<span style="color:#a6e22e">normalization</span>(<span style="color:#e6db74">&#34;amt&#34;</span>, 4.<span style="color:#a6e22e">97</span>),   1e<span style="color:#f92672">-</span>4);
+</span></span><span style="display:flex;"><span>    assertEquals( 0.<span style="color:#a6e22e">9341</span>, util.<span style="color:#a6e22e">normalization</span>(<span style="color:#e6db74">&#34;amt&#34;</span>, 220.<span style="color:#a6e22e">11</span>), 1e<span style="color:#f92672">-</span>4);
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Invalid field name → sentinel</span>
+</span></span><span style="display:flex;"><span>    assertEquals(<span style="color:#f92672">-</span>1, util.<span style="color:#a6e22e">normalization</span>(<span style="color:#e6db74">&#34;some other string&#34;</span>, 122), 1e<span style="color:#f92672">-</span>8);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The tolerance of <code>1e-4</code> is appropriate here — the hardcoded float statistics mean there&rsquo;s inherent rounding in the expected values. The cyclic encoding tests verify both correct output and the out-of-range sentinel:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Test</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testHourDayEncoding</span>() {
+</span></span><span style="display:flex;"><span>    assertArrayEquals(<span style="color:#66d9ef">new</span> <span style="color:#66d9ef">double</span><span style="color:#f92672">[]</span>{0.<span style="color:#a6e22e">258819</span>, 0.<span style="color:#a6e22e">965925</span>}, util.<span style="color:#a6e22e">hourEncoding</span>(1), 1e<span style="color:#f92672">-</span>6);
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Out-of-range → zero array → caught by checkIntegrity</span>
+</span></span><span style="display:flex;"><span>    assertArrayEquals(<span style="color:#66d9ef">new</span> <span style="color:#66d9ef">double</span><span style="color:#f92672">[</span>2<span style="color:#f92672">]</span>, util.<span style="color:#a6e22e">hourEncoding</span>(45));
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>There are no integration tests for <code>FraudCheckService</code> itself — only the <code>contextLoads()</code> smoke test that Spring Boot generates by default. Properly testing the service would require either a live Azure SQL connection or a mock of <code>FraudAuditRepository</code>.</p>
+<p>A <code>FraudControllerTest</code> regression test verifies that a probability of <code>0.8</code> is displayed as <code>80%</code> — which confirms that sigmoid is applied exactly once (in <code>FraudCheckService</code>) and the controller reads the already-converted value directly. Without this test, a future refactor could silently reintroduce the double-application bug.</p>
+<hr>
+<h1 id="deployment">Deployment<a hidden class="anchor" aria-hidden="true" href="#deployment">#</a></h1>
+<h2 id="docker">Docker<a hidden class="anchor" aria-hidden="true" href="#docker">#</a></h2>
+<p>The Dockerfile uses a four-stage build to keep the final image lean:</p>
+<ol>
+<li><strong>deps</strong> — downloads Maven dependencies into a cache layer</li>
+<li><strong>package</strong> — compiles and produces the fat jar</li>
+<li><strong>extract</strong> — uses Spring Boot&rsquo;s layer tools to split the jar into <code>dependencies</code>, <code>spring-boot-loader</code>, <code>snapshot-dependencies</code>, and <code>application</code></li>
+<li><strong>final</strong> — copies only the extracted layers into a minimal JRE image (<code>eclipse-temurin:17-jre-jammy</code>), running as a non-root <code>appuser</code></li>
+</ol>
+<p>The layer extraction step matters for iterative deploys: the <code>dependencies</code> layer (all the Maven jars) barely changes between pushes, so Docker&rsquo;s cache means only the <code>application</code> layer — your compiled classes and resources — gets pushed to the registry on most rebuilds.</p>
+<h2 id="github-actions--azure">GitHub Actions → Azure<a hidden class="anchor" aria-hidden="true" href="#github-actions--azure">#</a></h2>
+<p>On push to <code>main</code>, the pipeline builds the Docker image, pushes it to GitHub Container Registry (<code>ghcr.io</code>), and deploys to Azure Web App for Containers using <code>azure/webapps-deploy</code>. The two required environment variables (<code>DB_SERVER_NAME</code>, <code>DB_NAME</code>) are set in the Azure Web App configuration rather than in the image.</p>
+<h2 id="kubernetes">Kubernetes<a hidden class="anchor" aria-hidden="true" href="#kubernetes">#</a></h2>
+<p>Deployment and service manifests are included for anyone running this on a cluster. The deployment sets reasonable resource constraints:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">resources</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">requests</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">memory</span>: <span style="color:#e6db74">&#34;512Mi&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">cpu</span>: <span style="color:#e6db74">&#34;250m&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">limits</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">memory</span>: <span style="color:#e6db74">&#34;1Gi&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">cpu</span>: <span style="color:#e6db74">&#34;500m&#34;</span>
+</span></span></code></pre></div><p>The service is a <code>LoadBalancer</code> on port 80, forwarding to the container&rsquo;s 8080.</p>
+<hr>
+<h1 id="limitations--future-work">Limitations &amp; future work<a hidden class="anchor" aria-hidden="true" href="#limitations--future-work">#</a></h1>
+<p><strong>Accuracy metric needs context.</strong> As noted above, accuracy alone isn&rsquo;t the right lens for an imbalanced dataset — precision and recall on the fraud class are the numbers that actually matter. Adding these metrics during training is the most valuable single improvement to the evaluation setup.</p>
+<p><strong>Hardcoded normalisation statistics.</strong> The mean and standard deviation for amount, city population, and age are copied from the training notebook into <code>FraudCheckUtil</code> as constants. This works fine while the model and the Java service are developed together, but it means any retrain on updated data requires a manual update to the Java code. A cleaner approach would serialise the scaler parameters alongside the ONNX model and load them at startup, keeping the two artefacts in sync automatically.</p>
+<p><strong>Numeric input validation is minimal.</strong> Categorical fields are covered by predefined dropdowns, so invalid category or state values can&rsquo;t reach the model. Numeric fields (amount, city_pop, age) are validated by the browser&rsquo;s <code>required</code> attribute and <code>checkIntegrity()</code>&rsquo;s sentinel check, but there&rsquo;s no server-side range guard. Clamping these to plausible ranges would add a small amount of robustness for free.</p>
+<p><strong>Single model session.</strong> <code>OrtSession</code> is shared across all requests. ONNX Runtime&rsquo;s Java bindings handle concurrent CPU inference safely, so this is correct for the current workload. Under sustained high concurrency a session pool would be the natural next step, but it&rsquo;s not needed at this scale.</p>
+<p><strong>Audit log stores a subset of inputs.</strong> <code>FraudAudit</code> records amount, state, merchant, the predicted probability, and the fraud flag. This is enough to track outcomes and spot anomalies. Storing the full input or feature vector would make individual predictions fully reproducible from the log, which would be useful if the model is ever retrained and old predictions need to be re-evaluated.</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+    </ul>
+<nav class="paginav">
+  <a class="next" href="http://localhost:1313/posts/kv-store/">
+    <span class="title">Next »</span>
+    <br>
+    <span>High-Performance KV-Store Server</span>
+  </a>
+</nav>
+
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Yi&#39;s Portfolio</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>
