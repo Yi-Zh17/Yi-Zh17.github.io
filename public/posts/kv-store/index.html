@@ -8,8 +8,8 @@
 <title>High-Performance KV-Store Server | Yi&#39;s Portfolio</title>
 <meta name="keywords" content="">
 <meta name="description" content="Why an In-Memory KV-Store?
-In areas like High-Frequency Trading (HFT) and edge computing, system requirements emphasize not just overall throughput, but deterministic performance. Traditional relational databases often introduce high latency variance due to disk I/O and network overhead. To address this, I decided to build an in-memory Key-Value (KV) Store in C&#43;&#43; to explore how to implement data querying that satisfies the requirements.
-An in-memory KV store is a database that runs in the RAM instead of on disks. It provides ultra-fast read/write operations of unique keys paired with values. It is especially useful for caching, real-time analysis, session storage, etc. The goal of my implementation is to achieve low latency, high throughput, predictable performance, and concurrency support.">
+In areas like High-Frequency Trading (HFT) and edge computing, system requirements emphasize not just overall throughput, but deterministic performance. Traditional relational databases often introduce high latency variance due to disk I/O and network overhead. To address this, I built an in-memory Key-Value (KV) Store in C&#43;&#43; to explore how to implement data querying that meets those requirements.
+An in-memory KV store is a database that lives in RAM instead of on disk. It provides ultra-fast read/write operations on unique keys paired with values, and is especially useful for caching, real-time analysis, session storage, and similar workloads. The goals I had in mind were low latency, high throughput, predictable performance, and concurrency support.">
 <meta name="author" content="">
 <link rel="canonical" href="http://localhost:1313/posts/kv-store/">
 <link crossorigin="anonymous" href="/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css" integrity="sha256-2jIR5e&#43;Ge/K3X9WmUVz&#43;1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as="style">
@@ -172,15 +172,16 @@ An in-memory KV store is a database that runs in the RAM instead of on disks. It
                     <a href="#data-flow" aria-label="Data Flow">Data Flow</a><ul>
                         
                 <li>
-                    <a href="#1-server--receives-parses--despatches-bytes" aria-label="1. Server — Receives, parses &amp; despatches bytes">1. Server — Receives, parses &amp; despatches bytes</a></li>
+                    <a href="#1-server--receives-parses--dispatches-bytes" aria-label="1. Server — Receives, parses &amp; dispatches bytes">1. Server — Receives, parses &amp; dispatches bytes</a></li>
                 <li>
                     <a href="#2-thread-pool--queues--delegates-tasks-to-workers" aria-label="2. Thread Pool — Queues &amp; delegates tasks to workers">2. Thread Pool — Queues &amp; delegates tasks to workers</a></li>
                 <li>
                     <a href="#3-hash-table--robin-hood-open-addressing-insertion" aria-label="3. Hash Table — Robin Hood open-addressing insertion">3. Hash Table — Robin Hood open-addressing insertion</a></li>
                 <li>
-                    <a href="#4-memory-pool--slab-allocation" aria-label="4. Memory Pool — Slab allocation">4. Memory Pool — Slab allocation</a></li>
+                    <a href="#4-memory-pool--free-list-allocation" aria-label="4. Memory Pool — Free list allocation">4. Memory Pool — Free list allocation</a></li>
                 <li>
                     <a href="#5-thread-pool--sends-the-response" aria-label="5. Thread Pool — Sends the response">5. Thread Pool — Sends the response</a></li></ul>
+                </li></ul>
                 </li>
                 <li>
                     <a href="#memory-pool" aria-label="Memory Pool">Memory Pool</a><ul>
@@ -190,82 +191,111 @@ An in-memory KV store is a database that runs in the RAM instead of on disks. It
                 <li>
                     <a href="#the-problem-random-deallocation" aria-label="The Problem: Random Deallocation">The Problem: Random Deallocation</a></li>
                 <li>
-                    <a href="#the-solution-a-linked-free-list" aria-label="The Solution: A Linked Free List">The Solution: A Linked Free List</a></li>
+                    <a href="#the-solution-a-free-list" aria-label="The Solution: A Free List">The Solution: A Free List</a></li>
                 <li>
-                    <a href="#performance-impact" aria-label="Performance Impact">Performance Impact</a>
+                    <a href="#thread-local-ownership" aria-label="Thread-Local Ownership">Thread-Local Ownership</a></li>
+                <li>
+                    <a href="#performance-impact" aria-label="Performance Impact">Performance Impact</a></li></ul>
                 </li>
-            </ul>
-            </li>
-            </ul>
-            </li>
+                <li>
+                    <a href="#hash-table" aria-label="Hash Table">Hash Table</a><ul>
+                        
+                <li>
+                    <a href="#structure" aria-label="Structure">Structure</a></li>
+                <li>
+                    <a href="#robin-hood-hashing" aria-label="Robin Hood Hashing">Robin Hood Hashing</a></li>
+                <li>
+                    <a href="#insertion" aria-label="Insertion">Insertion</a></li>
+                <li>
+                    <a href="#lookup-and-the-early-exit-optimisation" aria-label="Lookup and the Early-Exit Optimisation">Lookup and the Early-Exit Optimisation</a></li>
+                <li>
+                    <a href="#deletion-and-tombstones" aria-label="Deletion and Tombstones">Deletion and Tombstones</a></li>
+                <li>
+                    <a href="#concurrency" aria-label="Concurrency">Concurrency</a></li></ul>
+                </li>
+                <li>
+                    <a href="#thread-pool" aria-label="Thread Pool">Thread Pool</a><ul>
+                        
+                <li>
+                    <a href="#lifecycle" aria-label="Lifecycle">Lifecycle</a></li>
+                <li>
+                    <a href="#shutdown" aria-label="Shutdown">Shutdown</a></li>
+                <li>
+                    <a href="#thread-local-pool-initialisation" aria-label="Thread-Local Pool Initialisation">Thread-Local Pool Initialisation</a></li></ul>
+                </li>
+                <li>
+                    <a href="#server" aria-label="Server">Server</a><ul>
+                        
+                <li>
+                    <a href="#setup" aria-label="Setup">Setup</a></li>
+                <li>
+                    <a href="#event-loop" aria-label="Event Loop">Event Loop</a></li>
+                <li>
+                    <a href="#dual-parser" aria-label="Dual Parser">Dual Parser</a></li></ul>
+                </li>
+                <li>
+                    <a href="#devops-docker--cicd" aria-label="DevOps: Docker &amp; CI/CD">DevOps: Docker &amp; CI/CD</a><ul>
+                        
+                <li>
+                    <a href="#multi-stage-docker-build" aria-label="Multi-Stage Docker Build">Multi-Stage Docker Build</a></li>
+                <li>
+                    <a href="#cicd-with-github-actions" aria-label="CI/CD with GitHub Actions">CI/CD with GitHub Actions</a></li></ul>
+                </li>
+                <li>
+                    <a href="#benchmarks" aria-label="Benchmarks">Benchmarks</a><ul>
+                        
+                <li>
+                    <a href="#reproducing-environment" aria-label="Reproducing Environment">Reproducing Environment</a></li>
+                <li>
+                    <a href="#result" aria-label="Result">Result</a></li></ul>
+                </li>
+                <li>
+                    <a href="#limitations" aria-label="Limitations">Limitations</a>
+                </li>
             </ul>
         </div>
     </details>
 </div>
 
   <div class="post-content"><h1 id="why-an-in-memory-kv-store">Why an In-Memory KV-Store?<a hidden class="anchor" aria-hidden="true" href="#why-an-in-memory-kv-store">#</a></h1>
-<p>In areas like High-Frequency Trading (HFT) and edge computing, system requirements emphasize not just overall throughput, but deterministic performance. Traditional relational databases often introduce high latency variance due to disk I/O and network overhead. To address this, I decided to build an in-memory Key-Value (KV) Store in C++ to explore how to implement data querying that satisfies the requirements.</p>
-<p>An in-memory KV store is a database that runs in the RAM instead of on disks. It provides ultra-fast read/write operations of unique keys paired with values. It is especially useful for caching, real-time analysis, session storage, etc. The goal of my implementation is to achieve low latency, high throughput, predictable performance, and concurrency support.</p>
-<p>Additionally, I wanted to practice deploying software in heterogeneous environments. After developing the project locally on an x86 machine, I containerized the application using Docker and set up a GitHub Actions CI/CD pipeline to deploy it to an ARM-based AWS Graviton instance. This process helped me verify the system&rsquo;s cross-architecture portability.</p>
+<p>In areas like High-Frequency Trading (HFT) and edge computing, system requirements emphasize not just overall throughput, but deterministic performance. Traditional relational databases often introduce high latency variance due to disk I/O and network overhead. To address this, I built an in-memory Key-Value (KV) Store in C++ to explore how to implement data querying that meets those requirements.</p>
+<p>An in-memory KV store is a database that lives in RAM instead of on disk. It provides ultra-fast read/write operations on unique keys paired with values, and is especially useful for caching, real-time analysis, session storage, and similar workloads. The goals I had in mind were low latency, high throughput, predictable performance, and concurrency support.</p>
+<p>I also wanted to practice deploying software in heterogeneous environments. After developing the project locally on an x86 machine, I containerized it using Docker and set up a GitHub Actions CI/CD pipeline to deploy it to an ARM-based AWS Graviton instance — partly as a sanity check that the system was genuinely portable across architectures.</p>
 <h2 id="tech-stack">Tech Stack<a hidden class="anchor" aria-hidden="true" href="#tech-stack">#</a></h2>
 <ul>
-<li>
-<p><strong>Language:</strong> C++17 (Focusing on RAII and memory safety)</p>
-</li>
-<li>
-<p><strong>Build System:</strong> Makefile</p>
-</li>
-<li>
-<p><strong>DevOps:</strong> Docker &amp; GitHub Actions (CI/CD)</p>
-</li>
-<li>
-<p><strong>Cloud:</strong> AWS EC2 (ARM/Graviton)</p>
-</li>
+<li><strong>Language:</strong> C++17 (with a focus on RAII and memory safety)</li>
+<li><strong>Build System:</strong> Makefile</li>
+<li><strong>DevOps:</strong> Docker &amp; GitHub Actions (CI/CD)</li>
+<li><strong>Cloud:</strong> AWS EC2 (ARM/Graviton)</li>
 </ul>
 <hr>
 <h1 id="system-architecture-overview">System Architecture Overview<a hidden class="anchor" aria-hidden="true" href="#system-architecture-overview">#</a></h1>
 <h2 id="design-principles">Design Principles<a hidden class="anchor" aria-hidden="true" href="#design-principles">#</a></h2>
-<p>To achieve the goals defined above, here are two major principles I had in mind while designing the architecture of the system:</p>
-<ul>
-<li>
-<p><strong>Mitigating $O(n)$ Search Times:</strong> Standard hash maps, such as <code>std::unordered_map</code>, typically handle hash collisions using linked lists. As the load factor increases, traversing these lists degrades performance toward $O(n)$. Therefore, a cutomized Hash Table is required to minimize this degradation and maintain $O(1)$ lookup times even under heavy load.</p>
-</li>
-<li>
-<p><strong>Minimizing OS Allocator Overhead:</strong> Using standard <code>new</code> or <code>malloc</code> calls involves the OS memory allocator, introducing non-deterministic execution time due to system calls and lock contention. To resolve this, a &ldquo;zero-allocation&rdquo; solution is desired — instead of performing heap allocation for every request, the system would reserve a large chunk of memory on the heap and manage the memory allocations on its own.</p>
-</li>
-</ul>
+<p>Two concerns shaped the architecture from the start:</p>
+<p><strong>Mitigating $O(n)$ search times.</strong> Standard hash maps like <code>std::unordered_map</code> handle collisions with linked lists. As the load factor grows, traversing those lists pushes lookup time toward $O(n)$. A custom hash table is needed to avoid this and keep operations at $O(1)$ even under heavy load.</p>
+<p><strong>Minimising OS allocator overhead.</strong> Every <code>new</code> or <code>malloc</code> call goes through the OS allocator, which introduces non-deterministic latency due to system calls and internal lock contention. The solution is to reserve a large block of memory upfront and manage allocations manually — so that during steady-state operation, no heap allocation happens at all.</p>
 <h2 id="core-components">Core Components<a hidden class="anchor" aria-hidden="true" href="#core-components">#</a></h2>
-<p>To keep the system modular and maintainable, I divided it into five components:</p>
+<p>The system is split into five components to keep things modular:</p>
 <ul>
-<li>
-<p><strong>Memory Pool:</strong> Handles raw memory management, bypassing the standard heap allocations.</p>
-</li>
-<li>
-<p><strong>Hash Table:</strong> The core data structure, optimized for fast lookups and cache efficiency.</p>
-</li>
-<li>
-<p><strong>Thread Pool:</strong> Manages worker threads to process multiple concurrent client requests.</p>
-</li>
-<li>
-<p><strong>Server:</strong> A TCP interface that handles network communication.</p>
-</li>
-<li>
-<p><strong>Logger:</strong> A thread-safe logging utility to monitor system states.</p>
-</li>
+<li><strong>Memory Pool:</strong> Manages raw memory, bypassing the standard heap.</li>
+<li><strong>Hash Table:</strong> The core data structure, optimised for fast lookups and cache efficiency.</li>
+<li><strong>Thread Pool:</strong> Manages worker threads that process concurrent client requests.</li>
+<li><strong>Server:</strong> A TCP interface that handles network communication via Linux <code>epoll</code>.</li>
+<li><strong>Logger:</strong> A thread-safe logging utility for monitoring system state.</li>
 </ul>
 <h2 id="data-flow">Data Flow<a hidden class="anchor" aria-hidden="true" href="#data-flow">#</a></h2>
-<p>I now give an example of how the command <code>SET foo bar</code> will flow through the components mentioned above.</p>
-<h3 id="1-server--receives-parses--despatches-bytes">1. Server — Receives, parses &amp; despatches bytes<a hidden class="anchor" aria-hidden="true" href="#1-server--receives-parses--despatches-bytes">#</a></h3>
-<p>First of all, the started server looping on <code>epoll_wait</code> will read the command into a buffer. The buffer will be parsed into a vector of <code>string_view</code>s. The <code>string_view</code>s are then copied into <code>std::string</code>s and assembled into a <code>Task</code> struct (which also contains the client&rsquo;s file descriptor). The struct is then pushed into a <code>queue</code> managed by the thread pool.</p>
+<p>Here is how the command <code>SET foo bar</code> flows through all five components.</p>
+<h3 id="1-server--receives-parses--dispatches-bytes">1. Server — Receives, parses &amp; dispatches bytes<a hidden class="anchor" aria-hidden="true" href="#1-server--receives-parses--dispatches-bytes">#</a></h3>
+<p>The server loops on <code>epoll_wait</code>. When a command arrives, it is read into a stack buffer and parsed into a vector of <code>string_view</code>s. Those views are then copied into <code>std::string</code>s and assembled into a <code>Task</code> struct (which also carries the client&rsquo;s file descriptor). The struct is pushed onto the thread pool&rsquo;s task queue.</p>
 <h3 id="2-thread-pool--queues--delegates-tasks-to-workers">2. Thread Pool — Queues &amp; delegates tasks to workers<a hidden class="anchor" aria-hidden="true" href="#2-thread-pool--queues--delegates-tasks-to-workers">#</a></h3>
-<p>After a task is pushed to the <code>queue</code> in the thread pool, a worker will be waken up to pop the task out of the <code>queue</code> and execute the task. During the execution, the worker will read the command and perform corresponding operations (<code>SET</code>, <code>GET</code> &amp; <code>DEL</code>) on the hash table.</p>
+<p>When a task is enqueued, a sleeping worker thread is woken up via a condition variable. The worker pops the task, unlocks the queue immediately so other workers can proceed, and then dispatches the command — calling <code>insert</code>, <code>get</code>, or <code>remove</code> on the hash table as appropriate.</p>
 <h3 id="3-hash-table--robin-hood-open-addressing-insertion">3. Hash Table — Robin Hood open-addressing insertion<a hidden class="anchor" aria-hidden="true" href="#3-hash-table--robin-hood-open-addressing-insertion">#</a></h3>
-<p>To perform an insertion, the hash table first calculates the hash of the key and its corresponding index. It then calls a memory allocation function in the thread-local memory pool (customized and distinct from heap allocation, described in the section below). The key-value is copied into the allocated memory slot. The hash table then updates its value by probing slots with Robin Hood hashing. If a slot with the same key is found, the old key-value pair is deallocated and overwritten; otherwise the slot will point to the new key-value pair.</p>
-<h3 id="4-memory-pool--slab-allocation">4. Memory Pool — Slab allocation<a hidden class="anchor" aria-hidden="true" href="#4-memory-pool--slab-allocation">#</a></h3>
-<p>Each worker thread owns its own memory pool. During the startup of the system, the memory pool will reserve a large memory chunk, divide it into a fixed number of smaller chunks, and chain them into a free list. When the hash table calls the <code>allocate()</code> function, it simply pops the head pointer, update it with the next available slot, and decrement the number of available slots. This operation takes constant time with zero system calls.</p>
+<p>To insert, the hash table hashes the key to get a starting index, then calls <code>allocate()</code> on the thread-local memory pool. The key and value are copied into the allocated slot using <code>memcpy</code>. The table then probes for a position using Robin Hood hashing. If a slot with the same key is found, the old entry is deallocated and overwritten; otherwise the new entry is placed according to the Robin Hood invariant.</p>
+<h3 id="4-memory-pool--free-list-allocation">4. Memory Pool — Free list allocation<a hidden class="anchor" aria-hidden="true" href="#4-memory-pool--free-list-allocation">#</a></h3>
+<p>Each worker thread owns its own memory pool. At startup, the pool reserves a large block of memory, divides it into fixed-size chunks, and chains them into a free list. When <code>allocate()</code> is called, it pops the head of the list and returns it — no system call, no lock, constant time. Deallocation is equally simple: the returned chunk is prepended back onto the list.</p>
 <h3 id="5-thread-pool--sends-the-response">5. Thread Pool — Sends the response<a hidden class="anchor" aria-hidden="true" href="#5-thread-pool--sends-the-response">#</a></h3>
-<p>After the insertion returns <code>true</code> from the hash table, the worker writes &ldquo;+OK\r\n&rdquo; to the cliend file descriptor.</p>
-<p>Here is a simple diagram showing the workflow:</p>
+<p>After a successful insertion, the worker writes <code>+OK\r\n</code> back to the client file descriptor.</p>
+<p>Here is a diagram of the full flow:</p>
 <pre tabindex="0"><code>Client
   │  &#34;SET foo bar\n&#34;
   ▼
@@ -294,45 +324,35 @@ Worker thread
   ▼
 Client receives &#34;+OK&#34;
 </code></pre><hr>
-<h2 id="memory-pool">Memory Pool<a hidden class="anchor" aria-hidden="true" href="#memory-pool">#</a></h2>
-<p>This component is central to achieving predictable latency. By managing memory at the application level, the system avoids the overhead and variance associated with the standard heap.</p>
-<h3 id="why-stdbyte">Why <code>std::byte</code>?<a hidden class="anchor" aria-hidden="true" href="#why-stdbyte">#</a></h3>
-<p>The memory pool is built on a pre-allocated <code>std::vector</code> of <code>std::byte</code>. Introduced in C++17, <code>std::byte</code> is designed specifically for raw memory manipulation. Unlike <code>char</code> or <code>unsigned char</code>, it does not support standard arithmetic operations. This prevents accidental arithmetic bugs while still permitting the bit-wise operations necessary for low-level memory handling.</p>
-<h3 id="the-problem-random-deallocation">The Problem: Random Deallocation<a hidden class="anchor" aria-hidden="true" href="#the-problem-random-deallocation">#</a></h3>
-<p>A naive memory pool might simply increment a pointer for each allocation. However, because a KV-store experiences random deallocations, this approach quickly exhausts the vector&rsquo;s capacity, leaving fragmented, unusable memory spaces behind. Searching linearly for these freed spaces to reuse them would introduce unacceptable latency into the system.</p>
-<h3 id="the-solution-a-linked-free-list">The Solution: A Linked Free List<a hidden class="anchor" aria-hidden="true" href="#the-solution-a-linked-free-list">#</a></h3>
-<p>To address fragmentation without sacrificing speed, I implemented a Free List. This structure tracks the next available memory slot, ensuring both allocation and deallocation remain strictly $O(1)$ operations.</p>
-<p><strong>1. Initialization:</strong></p>
-<p>During construction, the memory pool formats the pre-allocated vector so that each empty slot stores a pointer to the next available slot. A private pointer, <code>next_slot</code>, is initialized to point to the first index.</p>
+<h1 id="memory-pool">Memory Pool<a hidden class="anchor" aria-hidden="true" href="#memory-pool">#</a></h1>
+<p>This component is central to achieving predictable latency. By managing memory at the application level, the system avoids the overhead and variance that comes with the standard heap.</p>
+<h2 id="why-stdbyte">Why <code>std::byte</code>?<a hidden class="anchor" aria-hidden="true" href="#why-stdbyte">#</a></h2>
+<p>The memory pool is built on a pre-allocated <code>std::vector&lt;std::byte&gt;</code>. Introduced in C++17, <code>std::byte</code> is designed specifically for raw memory manipulation. Unlike <code>char</code> or <code>unsigned char</code>, it does not support arithmetic operations, which prevents accidental arithmetic bugs while still allowing the bitwise operations needed for low-level memory work.</p>
+<h2 id="the-problem-random-deallocation">The Problem: Random Deallocation<a hidden class="anchor" aria-hidden="true" href="#the-problem-random-deallocation">#</a></h2>
+<p>A naive pool might just increment a pointer for each allocation. That works fine until entries start being deleted. A KV store has unpredictable deletion patterns, so a bump-pointer pool quickly fills up with holes — freed chunks scattered throughout the buffer that can&rsquo;t be reused without an expensive linear scan.</p>
+<h2 id="the-solution-a-free-list">The Solution: A Free List<a hidden class="anchor" aria-hidden="true" href="#the-solution-a-free-list">#</a></h2>
+<p>To handle fragmentation without giving up speed, the pool uses a free list. This keeps both allocation and deallocation at strictly $O(1)$, regardless of how fragmented the pool becomes.</p>
+<p><strong>1. Initialisation:</strong></p>
+<p>During construction, the pool formats the pre-allocated vector so that each chunk stores a pointer to the next chunk in the chain. A private pointer <code>slot</code> is set to point to the first chunk.</p>
 <figure class="align-center ">
     <img loading="lazy" src="memory-pool.png#center"
-         alt="Memory pool initialized state"/> <figcaption>
-            <p>Memory pool initialized state</p>
+         alt="Memory pool initialised state"/> <figcaption>
+            <p>Memory pool initialised state</p>
         </figcaption>
 </figure>
 
 <p><strong>2. Allocation ($O(1)$):</strong></p>
-<p>When memory is requested, the pool performs the following steps without needing to search:</p>
+<p>When memory is requested, the pool:</p>
 <ul>
-<li>
-<p>Reads the address currently held by <code>next_slot</code>.</p>
-</li>
-<li>
-<p>Updates <code>next_slot</code> to point to the address stored <em>within</em> that chunk (the next available slot in the chain).</p>
-</li>
-<li>
-<p>Returns the original address to the caller.</p>
-</li>
+<li>Reads the address currently stored in <code>slot</code>.</li>
+<li>Updates <code>slot</code> to point to the address stored <em>within</em> that chunk (i.e. the next free slot).</li>
+<li>Returns the original address to the caller.</li>
 </ul>
 <p><strong>3. Deallocation ($O(1)$):</strong></p>
-<p>When memory is freed, it is threaded back into the chain:</p>
+<p>When memory is freed:</p>
 <ul>
-<li>
-<p>The pool writes the current <code>next_slot</code> address into the newly freed chunk.</p>
-</li>
-<li>
-<p><code>next_slot</code> is updated to point to this newly freed chunk.</p>
-</li>
+<li>The pool writes the current <code>slot</code> address into the newly freed chunk.</li>
+<li><code>slot</code> is updated to point to the freed chunk, making it the new head.</li>
 </ul>
 <figure class="align-center ">
     <img loading="lazy" src="memory-pool-modified.png#center"
@@ -341,9 +361,230 @@ Client receives &#34;+OK&#34;
         </figcaption>
 </figure>
 
-<h3 id="performance-impact">Performance Impact<a hidden class="anchor" aria-hidden="true" href="#performance-impact">#</a></h3>
-<p>This Free List design guarantees that finding or returning memory takes constant time, regardless of the pool&rsquo;s current capacity or fragmentation level. This constant-time operation is essential for maintaining the low-variance response times expected in performance-critical applications.</p>
-<h1></h1>
+<h2 id="thread-local-ownership">Thread-Local Ownership<a hidden class="anchor" aria-hidden="true" href="#thread-local-ownership">#</a></h2>
+<p>Each worker thread owns its pool as a <code>thread_local</code> variable:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">thread_local</span> MemoryPool <span style="color:#a6e22e">local_pool</span>(DEFAULT_CHUNK_NUM, DEFAULT_CHUNK_SIZE);
+</span></span></code></pre></div><p>This is what makes the pool lock-free. Because no two threads share a pool, <code>allocate()</code> and <code>deallocate()</code> never need synchronisation — they are just pointer operations. The hash table&rsquo;s write lock (<code>rw_lock</code>) still protects the shared table structure, but the memory allocation itself is completely off the critical path.</p>
+<h2 id="performance-impact">Performance Impact<a hidden class="anchor" aria-hidden="true" href="#performance-impact">#</a></h2>
+<p>The free list design guarantees constant-time memory operations regardless of the pool&rsquo;s fragmentation level. This is what gives the system its low-latency variance — the allocator will never stall a worker thread waiting on a system call or a lock that another thread holds.</p>
+<hr>
+<h1 id="hash-table">Hash Table<a hidden class="anchor" aria-hidden="true" href="#hash-table">#</a></h1>
+<p>The hash table is a flat open-addressing table using Robin Hood hashing. The key motivation for open addressing over chaining is cache efficiency: all entries live in a single contiguous array, so lookups stay cache-friendly even when probing past the initial bucket.</p>
+<h2 id="structure">Structure<a hidden class="anchor" aria-hidden="true" href="#structure">#</a></h2>
+<p>Each slot in the table is an <code>Entry</code>:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">Entry</span> {
+</span></span><span style="display:flex;"><span>    SlotState state <span style="color:#f92672">=</span> EMPTY;  <span style="color:#75715e">// EMPTY, OCCUPIED, or DELETED
+</span></span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> dib <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;              <span style="color:#75715e">// Distance from Initial Bucket
+</span></span></span><span style="display:flex;"><span>    KV<span style="color:#f92672">*</span> data;                 <span style="color:#75715e">// Pointer into the memory pool
+</span></span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>The <code>dib</code> field (distance from initial bucket) is the key to Robin Hood hashing. It tracks how far an entry has been displaced from the slot it originally hashed to.</p>
+<p>The <code>KV</code> struct holds fixed-size arrays for the key and value:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">KV</span> {
+</span></span><span style="display:flex;"><span>    std<span style="color:#f92672">::</span>array<span style="color:#f92672">&lt;</span><span style="color:#66d9ef">char</span>, KEY_SIZE<span style="color:#f92672">&gt;</span>   key;    <span style="color:#75715e">// max 64 bytes
+</span></span></span><span style="display:flex;"><span>    std<span style="color:#f92672">::</span>array<span style="color:#f92672">&lt;</span><span style="color:#66d9ef">char</span>, VALUE_SIZE<span style="color:#f92672">&gt;</span> value;  <span style="color:#75715e">// max 192 bytes
+</span></span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>Using fixed-size arrays keeps the layout predictable and avoids any dynamic allocation inside the hash table itself.</p>
+<h2 id="robin-hood-hashing">Robin Hood Hashing<a hidden class="anchor" aria-hidden="true" href="#robin-hood-hashing">#</a></h2>
+<p>Standard open addressing tends to form long probe chains for &ldquo;unlucky&rdquo; keys — ones that hash to a slot already occupied by many others. Robin Hood hashing fixes this by enforcing a fairness rule: if the entry being inserted has travelled further from its home than the entry currently sitting in a slot, they swap. The displaced entry continues probing.</p>
+<p>The effect is that probe distances are kept roughly equal across all entries, which bounds worst-case lookup time and keeps average probe length short.</p>
+<h2 id="insertion">Insertion<a hidden class="anchor" aria-hidden="true" href="#insertion">#</a></h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">bool</span> HashTable<span style="color:#f92672">::</span>insert(string_view key_view, string_view value_view) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ...
+</span></span></span><span style="display:flex;"><span>    size_t index <span style="color:#f92672">=</span> hash(key_view) <span style="color:#f92672">%</span> capacity;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">void</span><span style="color:#f92672">*</span> mem <span style="color:#f92672">=</span> local_pool.allocate();
+</span></span><span style="display:flex;"><span>    KV<span style="color:#f92672">*</span> newKV <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> (mem) KV();  <span style="color:#75715e">// placement new — no heap allocation
+</span></span></span><span style="display:flex;"><span>    <span style="color:#75715e">// memcpy key and value into newKV ...
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Entry current_entry{ .state <span style="color:#f92672">=</span> OCCUPIED, .dib <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>, .data <span style="color:#f92672">=</span> newKV };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span> (true) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (table[index].state <span style="color:#f92672">==</span> EMPTY <span style="color:#f92672">||</span> table[index].state <span style="color:#f92672">==</span> DELETED) {
+</span></span><span style="display:flex;"><span>            table[index] <span style="color:#f92672">=</span> current_entry;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> true;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (string_view(table[index].data<span style="color:#f92672">-&gt;</span>key.data()) <span style="color:#f92672">==</span> key_view) {
+</span></span><span style="display:flex;"><span>            local_pool.deallocate(table[index].data);  <span style="color:#75715e">// free old KV
+</span></span></span><span style="display:flex;"><span>            table[index] <span style="color:#f92672">=</span> current_entry;              <span style="color:#75715e">// overwrite
+</span></span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> true;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (current_entry.dib <span style="color:#f92672">&gt;</span> table[index].dib) {
+</span></span><span style="display:flex;"><span>            swap(current_entry, table[index]);  <span style="color:#75715e">// Robin Hood swap
+</span></span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        current_entry.dib<span style="color:#f92672">++</span>;
+</span></span><span style="display:flex;"><span>        index <span style="color:#f92672">=</span> (index <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>) <span style="color:#f92672">%</span> capacity;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Placement new (<code>new (mem) KV()</code>) constructs the <code>KV</code> object directly in the memory pool chunk, bypassing the heap entirely.</p>
+<h2 id="lookup-and-the-early-exit-optimisation">Lookup and the Early-Exit Optimisation<a hidden class="anchor" aria-hidden="true" href="#lookup-and-the-early-exit-optimisation">#</a></h2>
+<p>The <code>get</code> implementation takes advantage of the Robin Hood invariant to terminate early:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (table[index].state <span style="color:#f92672">==</span> OCCUPIED <span style="color:#f92672">&amp;&amp;</span> current_distance <span style="color:#f92672">&gt;</span> table[index].dib) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> nullopt;  <span style="color:#75715e">// early exit
+</span></span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>If the probe has already travelled further than the entry sitting in the current slot, the key being searched for cannot exist further along — it would have stolen that slot during insertion. This means <code>GET</code> on a missing key does not have to scan the entire table.</p>
+<h2 id="deletion-and-tombstones">Deletion and Tombstones<a hidden class="anchor" aria-hidden="true" href="#deletion-and-tombstones">#</a></h2>
+<p>Deletion marks the slot as <code>DELETED</code> rather than <code>EMPTY</code>:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>table[index].state <span style="color:#f92672">=</span> DELETED;
+</span></span></code></pre></div><p>This distinction matters because of how probing works. If a slot were cleared to <code>EMPTY</code> on deletion, a subsequent <code>GET</code> would stop probing at that gap and incorrectly report a miss, even if the key was inserted further along in the probe chain. The <code>DELETED</code> tombstone lets probing continue through the gap.</p>
+<p>The downside is that tombstones accumulate over time, slightly lengthening probe chains. This is a known trade-off with open addressing and would need compaction logic in a long-running system.</p>
+<h2 id="concurrency">Concurrency<a hidden class="anchor" aria-hidden="true" href="#concurrency">#</a></h2>
+<p>A <code>std::shared_mutex</code> provides reader-writer locking on the table. <code>GET</code> takes a shared lock, so multiple reads can proceed in parallel. <code>SET</code> and <code>DEL</code> take an exclusive lock. This is a coarse-grained approach — the whole table is locked per operation — but it is straightforward to reason about and sufficient for the workload this system targets.</p>
+<hr>
+<h1 id="thread-pool">Thread Pool<a hidden class="anchor" aria-hidden="true" href="#thread-pool">#</a></h1>
+<p>The thread pool creates one worker thread per logical CPU core using <code>std::thread::hardware_concurrency()</code>. All workers share a single task queue protected by a <code>std::mutex</code> and a <code>std::condition_variable</code>.</p>
+<h2 id="lifecycle">Lifecycle<a hidden class="anchor" aria-hidden="true" href="#lifecycle">#</a></h2>
+<p>Workers run <code>thread_tasks()</code> in a loop:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">void</span> ThreadPool<span style="color:#f92672">::</span>thread_tasks() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span> (true) {
+</span></span><span style="display:flex;"><span>        unique_lock<span style="color:#f92672">&lt;</span>mutex<span style="color:#f92672">&gt;</span> lock(queue_mutex);
+</span></span><span style="display:flex;"><span>        condition.wait(lock, [<span style="color:#66d9ef">this</span>] {
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">-&gt;</span>stop <span style="color:#f92672">||</span> <span style="color:#f92672">!</span><span style="color:#66d9ef">this</span><span style="color:#f92672">-&gt;</span>tasks.empty();
+</span></span><span style="display:flex;"><span>        });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (<span style="color:#66d9ef">this</span><span style="color:#f92672">-&gt;</span>stop <span style="color:#f92672">&amp;&amp;</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">-&gt;</span>tasks.empty()) <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        Task t <span style="color:#f92672">=</span> move(<span style="color:#66d9ef">this</span><span style="color:#f92672">-&gt;</span>tasks.front());
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">-&gt;</span>tasks.pop();
+</span></span><span style="display:flex;"><span>        lock.unlock();  <span style="color:#75715e">// release the queue before doing work
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// ... dispatch SET / GET / DEL ...
+</span></span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>A few things are worth noting here. The <code>condition.wait</code> call uses a predicate to guard against spurious wakeups — the thread will only proceed if there is actually a task to process or a shutdown has been requested. The lock is released immediately after the task is popped, so other workers do not have to wait while one thread is busy doing a hash table operation. And <code>std::move</code> is used when taking tasks off the queue to avoid copying the strings inside the command vector.</p>
+<h2 id="shutdown">Shutdown<a hidden class="anchor" aria-hidden="true" href="#shutdown">#</a></h2>
+<p>The destructor sets <code>stop = true</code>, notifies all workers, and joins them:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>ThreadPool<span style="color:#f92672">::~</span>ThreadPool() {
+</span></span><span style="display:flex;"><span>    queue_mutex.lock();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span><span style="color:#f92672">-&gt;</span>stop <span style="color:#f92672">=</span> true;
+</span></span><span style="display:flex;"><span>    queue_mutex.unlock();
+</span></span><span style="display:flex;"><span>    condition.notify_all();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">auto</span><span style="color:#f92672">&amp;</span> worker : workers) worker.join();
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Workers check the <code>stop</code> flag alongside the empty-queue condition, so they drain any remaining tasks before exiting cleanly.</p>
+<h2 id="thread-local-pool-initialisation">Thread-Local Pool Initialisation<a hidden class="anchor" aria-hidden="true" href="#thread-local-pool-initialisation">#</a></h2>
+<p>Each worker thread&rsquo;s memory pool is declared as a <code>thread_local</code> variable inside <code>HashTable.cpp</code>:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">thread_local</span> MemoryPool <span style="color:#a6e22e">local_pool</span>(DEFAULT_CHUNK_NUM, DEFAULT_CHUNK_SIZE);
+</span></span></code></pre></div><p><code>thread_local</code> in C++ means the variable is initialised the first time each thread accesses it, and destroyed when that thread exits. Since <code>local_pool</code> is used only inside hash table operations — which are always called from a worker thread — each worker gets its own pool on its first operation and holds it for its lifetime.</p>
+<hr>
+<h1 id="server">Server<a hidden class="anchor" aria-hidden="true" href="#server">#</a></h1>
+<p>The server handles networking via Linux <code>epoll</code>, which lets a single thread monitor many connections simultaneously without blocking.</p>
+<h2 id="setup">Setup<a hidden class="anchor" aria-hidden="true" href="#setup">#</a></h2>
+<p>On construction, the server creates a TCP socket, sets <code>SO_REUSEADDR</code> so the port can be reused immediately after a crash, binds to the given port, and starts listening. The socket is then set to non-blocking mode and registered with <code>epoll</code>.</p>
+<h2 id="event-loop">Event Loop<a hidden class="anchor" aria-hidden="true" href="#event-loop">#</a></h2>
+<p>The main loop calls <code>epoll_wait</code> to block until something happens:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">while</span> (true) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> num_events <span style="color:#f92672">=</span> epoll_wait(epoll_fd, events, MAX_EVENTS, <span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> num_events; i<span style="color:#f92672">++</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (events[i].data.fd <span style="color:#f92672">==</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">-&gt;</span>fd) {
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// New connection: accept, set non-blocking, register with epoll
+</span></span></span><span style="display:flex;"><span>        } <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// Existing client: read, parse, enqueue task
+</span></span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>New connections are accepted, set to non-blocking, and registered with <code>epoll</code> so their subsequent messages are handled in the same loop. If a read returns zero or negative, the connection is closed.</p>
+<h2 id="dual-parser">Dual Parser<a hidden class="anchor" aria-hidden="true" href="#dual-parser">#</a></h2>
+<p>Clients can send commands in two formats: plain text (e.g. <code>SET foo bar\n</code>) or the Redis RESP protocol (e.g. <code>*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n</code>). The parser checks the first byte to decide which path to take:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>vector<span style="color:#f92672">&lt;</span>string_view<span style="color:#f92672">&gt;</span> Server<span style="color:#f92672">::</span>callParse(<span style="color:#66d9ef">char</span><span style="color:#f92672">*</span> buffer) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">*</span>buffer <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;*&#39;</span>) <span style="color:#66d9ef">return</span> parseRESP(buffer);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>                <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">parseMessage</span>(buffer);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Supporting RESP means the server can be tested with <code>redis-cli</code> directly, which is convenient for debugging. The plain-text parser is a simple sliding-pointer tokeniser that splits on spaces.</p>
+<p>Both parsers return <code>string_view</code>s into the stack buffer. These are immediately copied into owned <code>std::string</code>s before being moved into a <code>Task</code>, because the buffer will be overwritten on the next read.</p>
+<hr>
+<h1 id="devops-docker--cicd">DevOps: Docker &amp; CI/CD<a hidden class="anchor" aria-hidden="true" href="#devops-docker--cicd">#</a></h1>
+<h2 id="multi-stage-docker-build">Multi-Stage Docker Build<a hidden class="anchor" aria-hidden="true" href="#multi-stage-docker-build">#</a></h2>
+<p>The Dockerfile uses a two-stage build to keep the final image small:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-dockerfile" data-lang="dockerfile"><span style="display:flex;"><span><span style="color:#75715e"># Stage 1: build</span><span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">FROM</span> <span style="color:#e6db74">gcc:latest</span> <span style="color:#66d9ef">AS</span> <span style="color:#e6db74">builder</span><span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">WORKDIR</span> <span style="color:#e6db74">/app</span><span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">COPY</span> . ./<span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">RUN</span> make server<span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"># Stage 2: runtime</span><span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">FROM</span> <span style="color:#e6db74">debian:trixie-slim</span><span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">WORKDIR</span> <span style="color:#e6db74">/app</span><span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">COPY</span> --from<span style="color:#f92672">=</span>builder /app/server .<span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">EXPOSE</span> <span style="color:#e6db74">8080</span><span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">CMD</span> [<span style="color:#e6db74">&#34;./server&#34;</span>]<span style="color:#960050;background-color:#1e0010">
+</span></span></span></code></pre></div><p>The builder stage compiles the binary inside a full GCC image. The runtime stage starts fresh from a minimal Debian image and copies only the compiled binary. The result is an image that contains no build tools or source files — just the server binary and its runtime dependencies.</p>
+<h2 id="cicd-with-github-actions">CI/CD with GitHub Actions<a hidden class="anchor" aria-hidden="true" href="#cicd-with-github-actions">#</a></h2>
+<p>A GitHub Actions workflow builds and tests the project on every push. The pipeline targets an AWS Graviton (ARM) instance, which required setting up cross-compilation or using QEMU emulation during the build step. This was the main engineering challenge on the DevOps side: the local development machine is x86, so ensuring the binary built correctly for ARM needed explicit attention to the toolchain.</p>
+<p>The CI pipeline runs the test binaries from the <code>test/</code> directory after each build, catching any regressions before they reach the deployed instance.</p>
+<hr>
+<h1 id="benchmarks">Benchmarks<a hidden class="anchor" aria-hidden="true" href="#benchmarks">#</a></h1>
+<h2 id="reproducing-environment">Reproducing Environment<a hidden class="anchor" aria-hidden="true" href="#reproducing-environment">#</a></h2>
+<p>Because the server is sensitive to CPU topology, memory bandwidth, kernel scheduling, and Docker overhead, these benchmark numbers should be read in the context of the machine they were measured on.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Component</th>
+          <th>Details</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Machine</td>
+          <td>Lenovo Legion Y7000P 2020H</td>
+      </tr>
+      <tr>
+          <td>CPU</td>
+          <td>Intel Core i7-10875H, 8 cores / 16 threads, up to 5.10 GHz</td>
+      </tr>
+      <tr>
+          <td>Architecture</td>
+          <td>x86_64</td>
+      </tr>
+      <tr>
+          <td>Memory</td>
+          <td>15 GiB RAM</td>
+      </tr>
+      <tr>
+          <td>OS</td>
+          <td>Linux Mint 22.2 (Ubuntu 24.04 base), Linux kernel 6.8.0-124-generic</td>
+      </tr>
+      <tr>
+          <td>Compiler</td>
+          <td>GCC 13.3.0</td>
+      </tr>
+      <tr>
+          <td>Runtime</td>
+          <td>Docker 29.5.3</td>
+      </tr>
+      <tr>
+          <td>Benchmark tool</td>
+          <td><code>memtier_benchmark</code> 64-bit, libevent 2.1.12-stable</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="result">Result<a hidden class="anchor" aria-hidden="true" href="#result">#</a></h2>
+<p>The server was benchmarked using <code>memtier_benchmark</code> with 4 threads and 50 concurrent clients against a running Docker container on the same machine:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Metric</th>
+          <th>Result</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Throughput</td>
+          <td>~244,000 ops/sec</td>
+      </tr>
+      <tr>
+          <td>p99 latency</td>
+          <td>1.08 ms</td>
+      </tr>
+  </tbody>
+</table>
+<p>The p99 latency staying under 2 ms across the full workload reflects the main design goal: not just high throughput, but low variance. Standard allocators can cause latency spikes at the tail because allocation time is non-deterministic — the free list pool largely eliminates that source of variance.</p>
+<hr>
+<h1 id="limitations">Limitations<a hidden class="anchor" aria-hidden="true" href="#limitations">#</a></h1>
+<p>This project was built as a learning exercise in systems programming, and there are a few significant limitations worth being upfront about.</p>
+<p><strong>No persistence.</strong> All data lives in RAM. A crash or restart wipes everything. A production system would need a WAL (Write-Ahead Log) or periodic snapshots to disk.</p>
+<p><strong>No eviction.</strong> The memory pool is fixed-size. When all <code>DEFAULT_CHUNK_NUM</code> chunks (10,000 per thread) are used up, <code>allocate()</code> returns <code>nullptr</code> and insertions fail silently with <code>-ERR insertion failed</code>. There is no LRU or any other eviction strategy.</p>
+<p><strong>Tombstone accumulation.</strong> The <code>DELETED</code> tombstone approach means deleted slots are never truly reclaimed. A long-running server with heavy deletion traffic would see probe chains lengthen over time. Compaction or Robin Hood backward-shifting on deletion would fix this.</p>
+<p><strong>Coarse locking.</strong> The single <code>shared_mutex</code> on the hash table means all writers serialise. Under write-heavy workloads with many cores, this becomes a bottleneck. Sharding the table into independent buckets, each with its own lock, is the standard approach for scaling this further.</p>
+<p><strong>Key and value size limits.</strong> Keys are capped at 64 bytes and values at 192 bytes. These are compile-time constants (<code>KEY_SIZE</code> and <code>VALUE_SIZE</code>), so there is no dynamic sizing. Anything larger is silently rejected.</p>
 
 
   </div>
